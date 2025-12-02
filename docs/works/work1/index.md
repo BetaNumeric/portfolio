@@ -1,9 +1,6 @@
 # We can't imagine how it has been, but they have existed.
 ## Mahmoud Tamaa
 
-#Test
-
-
 ## Abstract
  We can't imagine how it has been, but they have existed is an exploration of the cyclical relationship between ritual, memory, absence, imagination and the act of listening. At its core lies a self-built sound-object inspired by the rainstick — an instrument and ritual object that is made from a tube of cactus or bamboo, with many nails inside the walls and filled with seeds or small stones. By turning it, the seeds start falling through the nails - creating a soft sound like rain.​  
 The project is not a rainsick, but inspired by it's elements it aims at creating a new kind of ritual (object) – reimagining the cycle of falling seeds as a practice of remembrance. ​Seeds, stones and rain carry memories of countless places. They invoke fragments of lost narratives and destroyed worlds. The project seeks to engage with the silenced and subjugated knowledges that linger as echoes—ghosts within the present. Rather than filling the gaps of historical records, the work invites into a practice of speculative listening and remembering – trying to create a ritual space in which lost fragments of the past might be sensed rather than told.
