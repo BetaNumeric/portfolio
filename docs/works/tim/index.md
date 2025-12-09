@@ -3,7 +3,6 @@
 
 
 
-
 **Short Description**
 
 By collapsing one spatial axis and repurposing it to encode time, I aim to reveal processes as volumes.
