@@ -1,5 +1,7 @@
 # my-awsome-portfolio — Project Overview
 
+https://betanumeric.github.io/portfolio/
+
 This repository is a portfolio site built with VitePress (Vue + static site generation) and styled with Tailwind CSS. Content (Markdown pages and works) lives under `docs/` and a custom VitePress theme provides components and layouts.
 
 Key points:
