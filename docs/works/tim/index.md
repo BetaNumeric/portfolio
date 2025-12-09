@@ -1,5 +1,5 @@
 #  Volumetric Time 
-## tim redlich
+## Tim Redlich
 
 
 
