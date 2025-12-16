@@ -3,8 +3,6 @@
 
 
 
-**Short Description**
-
 By collapsing one spatial axis and repurposing it to encode time, I aim to reveal processes as volumes.
 I want to build a contraption that allows me to precisely control a screen’s position along an axis and display a sequence of images at precise locations chronologically or in an arbitrary order. A camera captures the process, and by additively stacking the images (or long-exposure photography), reveals the underlying structure, producing luminous, semi-transparent time sculptures.
 
