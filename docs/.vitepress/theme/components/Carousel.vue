@@ -5,12 +5,13 @@
     @mouseleave="onMouseLeave"
   >
     <div
-      class="flex transition-transform duration-500 ease-out"
-      :style="{ transform: `translateX(-${currentIndex * 100}%)` }"
-      ref="track"
+      class="flex duration-500 ease-out"
+      :class="transitionEnabled ? 'transition-transform' : 'transition-none'"
+      :style="{ transform: `translateX(-${internalIndex * 100}%)` }"
+      @transitionend="onTransitionEnd"
     >
       <div
-        v-for="(s, i) in slides"
+        v-for="(s, i) in extendedSlides"
         :key="i"
         class="w-full flex-shrink-0 relative"
       >
@@ -72,7 +73,7 @@
         v-for="(s, i) in slides"
         :key="`dot-${i}`"
         @click="goTo(i)"
-        :class="['w-3 h-3 rounded-full', currentIndex === i ? 'bg-white' : 'bg-white/40']"
+        :class="['w-3 h-3 rounded-full', activeIndex === i ? 'bg-white' : 'bg-white/40']"
         :aria-label="`Go to slide ${i+1}`"
       ></button>
     </div>
@@ -80,55 +81,140 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-type Slide = {
+export type Slide = {
   title?: string
   image?: string | null
   excerpt?: string
   href?: string
 }
 
-const props = defineProps<{
+const props = withDefaults(
+  defineProps<{
   slides: Slide[]
   autoplay?: boolean
   interval?: number
   loop?: boolean
-}>()
+  }>(),
+  {
+    autoplay: false,
+    interval: 4000,
+    loop: true,
+  }
+)
 
-const { slides = [], autoplay = false, interval = 4000, loop = true } = props
+const slides = computed(() => props.slides ?? [])
+const autoplay = computed(() => props.autoplay)
+const interval = computed(() => props.interval)
+const loop = computed(() => props.loop)
 
-const currentIndex = ref(0)
+const internalIndex = ref(0)
+const transitionEnabled = ref(true)
+const isSnapping = ref(false)
 const paused = ref(false)
 let timer: number | null = null
-const track = ref<HTMLElement | null>(null)
+
+const extendedSlides = computed(() => {
+  const base = slides.value
+  if (!loop.value || base.length <= 1) return base
+  const first = base[0]
+  const last = base[base.length - 1]
+  return [last, ...base, first]
+})
+
+const activeIndex = computed(() => {
+  const len = slides.value.length
+  if (len === 0) return 0
+  if (!loop.value || len <= 1) return Math.min(internalIndex.value, len - 1)
+  const idx = (internalIndex.value - 1 + len) % len
+  return idx
+})
+
+function initIndex() {
+  const len = slides.value.length
+  if (len === 0) {
+    internalIndex.value = 0
+    return
+  }
+  internalIndex.value = loop.value && len > 1 ? 1 : 0
+}
 
 function next() {
-  if (currentIndex.value >= slides.length - 1) {
-    if (loop) currentIndex.value = 0
-  } else {
-    currentIndex.value += 1
+  const len = slides.value.length
+  if (len <= 1) return
+  if (isSnapping.value || !transitionEnabled.value) return
+
+  if (!loop.value) {
+    internalIndex.value = Math.min(internalIndex.value + 1, len - 1)
+    return
   }
+
+  // Loop mode uses extendedSlides indexes: [0..len+1]
+  internalIndex.value = Math.min(internalIndex.value + 1, len + 1)
 }
 
 function prev() {
-  if (currentIndex.value <= 0) {
-    if (loop) currentIndex.value = slides.length - 1
-  } else {
-    currentIndex.value -= 1
+  const len = slides.value.length
+  if (len <= 1) return
+  if (isSnapping.value || !transitionEnabled.value) return
+
+  if (!loop.value) {
+    internalIndex.value = Math.max(internalIndex.value - 1, 0)
+    return
   }
+
+  // Loop mode uses extendedSlides indexes: [0..len+1]
+  internalIndex.value = Math.max(internalIndex.value - 1, 0)
 }
 
 function goTo(i: number) {
-  currentIndex.value = i
+  const len = slides.value.length
+  if (len === 0) return
+  if (isSnapping.value || !transitionEnabled.value) return
+  if (!loop.value || len <= 1) {
+    internalIndex.value = Math.max(0, Math.min(i, len - 1))
+    return
+  }
+  internalIndex.value = Math.max(1, Math.min(i + 1, len))
+}
+
+function onTransitionEnd() {
+  const len = slides.value.length
+  if (!loop.value || len <= 1) return
+
+  // If we're on a cloned slide, snap to the matching real slide with transitions disabled.
+  if (internalIndex.value === 0) {
+    isSnapping.value = true
+    transitionEnabled.value = false
+    internalIndex.value = len
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        transitionEnabled.value = true
+        isSnapping.value = false
+      })
+    })
+  } else if (internalIndex.value === len + 1) {
+    isSnapping.value = true
+    transitionEnabled.value = false
+    internalIndex.value = 1
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        transitionEnabled.value = true
+        isSnapping.value = false
+      })
+    })
+  }
 }
 
 function startTimer() {
   stopTimer()
-  if (!autoplay || paused.value || slides.length <= 1) return
+  // VitePress renders components during SSR where `window` doesn't exist.
+  if (typeof window === 'undefined') return
+  if (!autoplay.value || paused.value || slides.value.length <= 1) return
   timer = window.setInterval(() => {
     next()
-  }, interval)
+  }, interval.value)
 }
 
 function stopTimer() {
@@ -148,9 +234,17 @@ function onMouseLeave() {
   startTimer()
 }
 
-watch(() => ({ autoplay, interval, slides: slides.length }), startTimer)
+watch(
+  () => [autoplay.value, interval.value, slides.value.length, loop.value],
+  () => {
+    initIndex()
+    startTimer()
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
+  initIndex()
   startTimer()
 })
 
@@ -159,6 +253,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-/* small helpers if needed */
-</style>
+<style scoped></style>
