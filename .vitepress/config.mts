@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  base: '/portfolio/',
   title: "Tim Paulawitz",
   description: "Artist & creative technologist focusing on generative visuals, installations, and experimental media.",
   themeConfig: {
