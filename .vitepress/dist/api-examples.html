@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Runtime API Examples | Tim Paulawitz</title>
+    <meta name="description" content="Artist & creative technologist focusing on generative visuals, installations, and experimental media.">
+    <meta name="generator" content="VitePress v1.6.4">
+    <link rel="preload stylesheet" href="/assets/style.DIJV9b8X.css" as="style">
+    <link rel="preload stylesheet" href="/vp-icons.css" as="style">
+    
+    <script type="module" src="/assets/app.D1CL68ps.js"></script>
+    <link rel="modulepreload" href="/assets/chunks/theme.BRjpDTeQ.js">
+    <link rel="modulepreload" href="/assets/chunks/framework.ClvGuTJj.js">
+    <link rel="modulepreload" href="/assets/api-examples.md.Cm8xV3Em.lean.js">
+    <script id="check-dark-mode">(()=>{const e=localStorage.getItem("vitepress-theme-appearance")||"auto",a=window.matchMedia("(prefers-color-scheme: dark)").matches;(!e||e==="auto"?a:e==="dark")&&document.documentElement.classList.add("dark")})();</script>
+    <script id="check-mac-os">document.documentElement.classList.toggle("mac",/Mac|iPhone|iPod|iPad/i.test(navigator.platform));</script>
+  </head>
+  <body>
+    <div id="app"><div class="site-shell"><div class="navbar-trigger"></div><header class="site-header"><div class="site-header__wrapper"><a class="site-title" href="/"><span class="site-title__name">Tim Paulawitz</span><span class="site-title__divider">|</span><span class="site-title__role">Portfolio</span></a><nav class="site-nav" aria-label="Primary"><!--[--><a href="/#projects" class="site-nav__link">Projects</a><a href="/#contact" class="site-nav__link">Contact</a><a href="/#about" class="site-nav__link">About Me</a><!--]--></nav></div></header><!----><!----><main class="site-main"><div class="content-page"><div style="position:relative;"><div><h1 id="runtime-api-examples" tabindex="-1">Runtime API Examples <a class="header-anchor" href="#runtime-api-examples" aria-label="Permalink to &quot;Runtime API Examples&quot;">​</a></h1><p>This page demonstrates usage of some of the runtime APIs provided by VitePress.</p><p>The main <code>useData()</code> API can be used to access site, theme, and page data for the current page. It works in both <code>.md</code> and <code>.vue</code> files:</p><div class="language-md vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">md</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">&lt;script setup&gt;</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">import { useData } from &#39;vitepress&#39;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">const { theme, page, frontmatter } = useData()</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">&lt;/script&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-light-font-weight:bold;--shiki-dark:#79B8FF;--shiki-dark-font-weight:bold;">## Results</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-light-font-weight:bold;--shiki-dark:#79B8FF;--shiki-dark-font-weight:bold;">### Theme Data</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">&lt;pre&gt;{{ theme }}&lt;/pre&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-light-font-weight:bold;--shiki-dark:#79B8FF;--shiki-dark-font-weight:bold;">### Page Data</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">&lt;pre&gt;{{ page }}&lt;/pre&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-light-font-weight:bold;--shiki-dark:#79B8FF;--shiki-dark-font-weight:bold;">### Page Frontmatter</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">&lt;pre&gt;{{ frontmatter }}&lt;/pre&gt;</span></span></code></pre></div><h2 id="results" tabindex="-1">Results <a class="header-anchor" href="#results" aria-label="Permalink to &quot;Results&quot;">​</a></h2><h3 id="theme-data" tabindex="-1">Theme Data <a class="header-anchor" href="#theme-data" aria-label="Permalink to &quot;Theme Data&quot;">​</a></h3><pre>{
+  &quot;nav&quot;: [
+    {
+      &quot;text&quot;: &quot;Projects&quot;,
+      &quot;link&quot;: &quot;/#projects&quot;
+    },
+    {
+      &quot;text&quot;: &quot;Contact&quot;,
+      &quot;link&quot;: &quot;/#contact&quot;
+    },
+    {
+      &quot;text&quot;: &quot;About Me&quot;,
+      &quot;link&quot;: &quot;/#about&quot;
+    }
+  ],
+  &quot;socialLinks&quot;: [
+    {
+      &quot;icon&quot;: &quot;vimeo&quot;,
+      &quot;link&quot;: &quot;https://vimeo.com/eydeet&quot;
+    },
+    {
+      &quot;icon&quot;: &quot;youtube&quot;,
+      &quot;link&quot;: &quot;https://www.youtube.com/user/DerEydeet&quot;
+    },
+    {
+      &quot;icon&quot;: &quot;instagram&quot;,
+      &quot;link&quot;: &quot;https://instagram.com/eydeet&quot;
+    },
+    {
+      &quot;icon&quot;: &quot;github&quot;,
+      &quot;link&quot;: &quot;https://github.com/BetaNumeric&quot;
+    },
+    {
+      &quot;icon&quot;: &quot;linkedin&quot;,
+      &quot;link&quot;: &quot;https://linkedin.com/in/timredlich&quot;
+    },
+    {
+      &quot;icon&quot;: &quot;mail&quot;,
+      &quot;link&quot;: &quot;mailto:tim.red@web.de&quot;
+    }
+  ],
+  &quot;footerTitle&quot;: &quot;Tim Redlich | Portfolio&quot;,
+  &quot;footerLinks&quot;: [
+    {
+      &quot;text&quot;: &quot;Recursive Emergence&quot;,
+      &quot;link&quot;: &quot;/projects/recursive-emergence&quot;
+    },
+    {
+      &quot;text&quot;: &quot;Time Scale&quot;,
+      &quot;link&quot;: &quot;/projects/time&quot;
+    },
+    {
+      &quot;text&quot;: &quot;Breathing Trees&quot;,
+      &quot;link&quot;: &quot;/projects/breathing-trees&quot;
+    },
+    {
+      &quot;text&quot;: &quot;Seeing Water&quot;,
+      &quot;link&quot;: &quot;/projects/seeing-water&quot;
+    }
+  ]
+}</pre><h3 id="page-data" tabindex="-1">Page Data <a class="header-anchor" href="#page-data" aria-label="Permalink to &quot;Page Data&quot;">​</a></h3><pre>{
+  &quot;title&quot;: &quot;Runtime API Examples&quot;,
+  &quot;description&quot;: &quot;&quot;,
+  &quot;frontmatter&quot;: {
+    &quot;outline&quot;: &quot;deep&quot;
+  },
+  &quot;headers&quot;: [],
+  &quot;relativePath&quot;: &quot;api-examples.md&quot;,
+  &quot;filePath&quot;: &quot;api-examples.md&quot;
+}</pre><h3 id="page-frontmatter" tabindex="-1">Page Frontmatter <a class="header-anchor" href="#page-frontmatter" aria-label="Permalink to &quot;Page Frontmatter&quot;">​</a></h3><pre>{
+  &quot;outline&quot;: &quot;deep&quot;
+}</pre><h2 id="more" tabindex="-1">More <a class="header-anchor" href="#more" aria-label="Permalink to &quot;More&quot;">​</a></h2><p>Check out the documentation for the <a href="https://vitepress.dev/reference/runtime-api#usedata" target="_blank" rel="noreferrer">full list of runtime APIs</a>.</p></div></div></div></main><footer class="home-footer"><div class="home-footer__title">Tim Redlich | Portfolio</div><div class="home-footer__links"><!--[--><a href="/projects/recursive-emergence" class="home-footer__link">Recursive Emergence</a><a href="/projects/time" class="home-footer__link">Time Scale</a><a href="/projects/breathing-trees" class="home-footer__link">Breathing Trees</a><a href="/projects/seeing-water" class="home-footer__link">Seeing Water</a><!--]--></div><div class="social-links"><!--[--><a href="https://vimeo.com/eydeet" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/vimeo.svg" class="social-icon"></a><a href="https://www.youtube.com/user/DerEydeet" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/youtube.svg" class="social-icon"></a><a href="https://instagram.com/eydeet" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/instagram.svg" class="social-icon"></a><a href="https://github.com/BetaNumeric" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/github.svg" class="social-icon"></a><a href="https://linkedin.com/in/timredlich" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/linkedin.svg" class="social-icon"></a><a href="mailto:tim.red@web.de" class="social-link" target="_blank" rel="noreferrer"><img src="/assets/icons/mail.svg" class="social-icon"></a><!--]--></div></footer></div></div>
+    <script>window.__VP_HASH_MAP__=JSON.parse("{\"api-examples.md\":\"Cm8xV3Em\",\"index.md\":\"Dlvzfgov\",\"markdown-examples.md\":\"Bqwfhwxk\",\"projects_recursive-emergence_index.md\":\"BYq6XuwP\",\"projects_seeing-water_index.md\":\"CTGdGvHb\"}");window.__VP_SITE_DATA__=JSON.parse("{\"lang\":\"en-US\",\"dir\":\"ltr\",\"title\":\"Tim Paulawitz\",\"description\":\"Artist & creative technologist focusing on generative visuals, installations, and experimental media.\",\"base\":\"/\",\"head\":[],\"router\":{\"prefetchLinks\":true},\"appearance\":true,\"themeConfig\":{\"nav\":[{\"text\":\"Projects\",\"link\":\"/#projects\"},{\"text\":\"Contact\",\"link\":\"/#contact\"},{\"text\":\"About Me\",\"link\":\"/#about\"}],\"socialLinks\":[{\"icon\":\"vimeo\",\"link\":\"https://vimeo.com/eydeet\"},{\"icon\":\"youtube\",\"link\":\"https://www.youtube.com/user/DerEydeet\"},{\"icon\":\"instagram\",\"link\":\"https://instagram.com/eydeet\"},{\"icon\":\"github\",\"link\":\"https://github.com/BetaNumeric\"},{\"icon\":\"linkedin\",\"link\":\"https://linkedin.com/in/timredlich\"},{\"icon\":\"mail\",\"link\":\"mailto:tim.red@web.de\"}],\"footerTitle\":\"Tim Redlich | Portfolio\",\"footerLinks\":[{\"text\":\"Recursive Emergence\",\"link\":\"/projects/recursive-emergence\"},{\"text\":\"Time Scale\",\"link\":\"/projects/time\"},{\"text\":\"Breathing Trees\",\"link\":\"/projects/breathing-trees\"},{\"text\":\"Seeing Water\",\"link\":\"/projects/seeing-water\"}]},\"locales\":{},\"scrollOffset\":134,\"cleanUrls\":false}");</script>
+    
+  </body>
+</html>
