@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { withBase } from 'vitepress'
 import lottie from 'lottie-web'
 
 const props = defineProps<{
@@ -54,7 +55,7 @@ onMounted(() => {
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      path: '/assets/lotties/play.json'
+      path: withBase('/assets/lotties/play.json')
     })
   }
 })
@@ -78,8 +79,8 @@ const handleMouseLeave = () => {
       @mouseleave="handleMouseLeave"
       @click="openLightbox"
     >
-      <video v-if="video" :src="video" autoplay loop muted playsinline></video>
-      <img v-else-if="image" :src="image" :alt="alt || 'Project media'">
+      <video v-if="video" :src="withBase(video)" autoplay loop muted playsinline></video>
+      <img v-else-if="image" :src="withBase(image)" :alt="alt || 'Project media'">
       <div v-if="video" ref="lottieContainer" class="lottie-overlay" :class="{ 'is-visible': showLottie }"></div>
     </div>
     
