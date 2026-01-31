@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useData, useRoute } from 'vitepress'
+import { useData, useRoute, withBase } from 'vitepress'
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -106,13 +106,13 @@ const handleLeave = (event: MouseEvent) => {
     <div class="navbar-trigger" @mouseenter="handleMouseEnter"></div>
     <header class="site-header" :class="{ 'site-header--hidden': isNavbarHidden }" @mouseenter="handleMouseEnter">
       <div class="site-header__wrapper">
-        <a class="site-title" href="/">
+        <a class="site-title" :href="withBase('/')">
           <span class="site-title__name">{{ site.title }}</span>
           <span class="site-title__divider">|</span>
           <span class="site-title__role">Portfolio</span>
         </a>
         <nav class="site-nav" aria-label="Primary">
-          <a v-for="item in navItems" :key="item.link" :href="item.link" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]">
+          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]">
             {{ item.text }}
           </a>
         </nav>
@@ -124,7 +124,7 @@ const handleLeave = (event: MouseEvent) => {
         <video
           v-if="frontmatter.heroMedia?.video"
           class="hero-media__asset"
-          :src="frontmatter.heroMedia.video"
+          :src="withBase(frontmatter.heroMedia.video)"
           autoplay
           muted
           loop
@@ -134,7 +134,7 @@ const handleLeave = (event: MouseEvent) => {
         <img
           v-else-if="frontmatter.heroMedia?.image"
           class="hero-media__asset"
-          :src="frontmatter.heroMedia.image"
+          :src="withBase(frontmatter.heroMedia.image)"
           :alt="frontmatter.heroMedia.alt || 'Featured work'"
           loading="lazy"
         />
@@ -143,7 +143,7 @@ const handleLeave = (event: MouseEvent) => {
     </section>
 
     <!-- Full Width Project Hero -->
-    <div v-if="isProject && frontmatter.heroImage" class="project-hero-fullscreen" :style="{ backgroundImage: `url(${frontmatter.heroImage})` }"></div>
+    <div v-if="isProject && frontmatter.heroImage" class="project-hero-fullscreen" :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"></div>
 
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
@@ -152,7 +152,7 @@ const handleLeave = (event: MouseEvent) => {
           <a
             v-for="project in frontmatter.projects"
             :key="project.title"
-            :href="project.link"
+            :href="withBase(project.link)"
             class="project-card"
             target="_blank"
             rel="noreferrer"
@@ -166,7 +166,7 @@ const handleLeave = (event: MouseEvent) => {
                   <img
                     v-for="(image, index) in project.images"
                     :key="image + index"
-                    :src="image"
+                    :src="withBase(image)"
                     :alt="project.title"
                     loading="lazy"
                   />
@@ -174,14 +174,14 @@ const handleLeave = (event: MouseEvent) => {
               </template>
               <img
                 v-else-if="project.image"
-                :src="project.image"
+                :src="withBase(project.image)"
                 :alt="project.title"
                 loading="lazy"
               />
               <div v-else class="project-card__placeholder" aria-hidden="true"></div>
               <video
                 v-if="project.preview"
-                :src="project.preview"
+                :src="withBase(project.preview)"
                 muted
                 loop
                 playsinline
@@ -216,8 +216,8 @@ const handleLeave = (event: MouseEvent) => {
              <div class="related-projects" v-if="frontmatter.relatedProjects">
                  <h3>Related Projects</h3>
                  <div class="related-grid">
-                    <a v-for="proj in frontmatter.relatedProjects" :key="proj.title" :href="proj.link" class="related-card">
-                       <img :src="proj.image" :alt="proj.title">
+                    <a v-for="proj in frontmatter.relatedProjects" :key="proj.title" :href="withBase(proj.link)" class="related-card">
+                       <img :src="withBase(proj.image)" :alt="proj.title">
                        <span>{{ proj.title }}</span>
                     </a>
                  </div>
@@ -241,7 +241,7 @@ const handleLeave = (event: MouseEvent) => {
         <a
           v-for="link in footerLinks"
           :key="link.link"
-          :href="link.link"
+          :href="withBase(link.link)"
           class="home-footer__link"
         >
           {{ link.text }}
@@ -256,7 +256,7 @@ const handleLeave = (event: MouseEvent) => {
           target="_blank"
           rel="noreferrer"
         >
-          <img v-if="link.icon" :src="`/assets/icons/${link.icon}.svg`" :alt="link.name" class="social-icon" />
+          <img v-if="link.icon" :src="withBase(`/assets/icons/${link.icon}.svg`)" :alt="link.name" class="social-icon" />
           <span v-else>{{ link.name }}</span>
         </a>
       </div>
