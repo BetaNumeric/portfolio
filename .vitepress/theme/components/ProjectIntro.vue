@@ -8,6 +8,7 @@ const props = defineProps<{
   image?: string
   alt?: string
   fullVideo?: string
+  externalLink?: string
 }>()
 
 const lottieContainer = ref<HTMLDivElement | null>(null)
@@ -36,7 +37,9 @@ const embedUrl = computed(() => {
 })
 
 const openLightbox = () => {
-  if (props.fullVideo) {
+  if (props.externalLink) {
+    window.open(props.externalLink, '_blank')
+  } else if (props.fullVideo) {
     isLightboxOpen.value = true
     // Prevent scrolling when lightbox is open
     document.body.style.overflow = 'hidden'
@@ -73,7 +76,7 @@ const handleMouseLeave = () => {
   <div class="project-intro-section">
     <div 
       class="project-main-media" 
-      :class="{ 'is-clickable': !!fullVideo }"
+      :class="{ 'is-clickable': !!(fullVideo || externalLink) }"
       ref="mediaContainer" 
       @mouseenter="handleMouseEnter" 
       @mouseleave="handleMouseLeave"
@@ -81,7 +84,7 @@ const handleMouseLeave = () => {
     >
       <video v-if="video" :src="withBase(video)" autoplay loop muted playsinline></video>
       <img v-else-if="image" :src="withBase(image)" :alt="alt || 'Project media'">
-      <div v-if="video" ref="lottieContainer" class="lottie-overlay" :class="{ 'is-visible': showLottie }"></div>
+      <div v-if="fullVideo || externalLink" ref="lottieContainer" class="lottie-overlay" :class="{ 'is-visible': showLottie }"></div>
     </div>
     
     <div class="project-intro-text">

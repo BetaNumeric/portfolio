@@ -2,6 +2,7 @@
 import Layout from './Layout.vue'
 import ProjectAccordion from './components/ProjectAccordion.vue'
 import ProjectIntro from './components/ProjectIntro.vue'
+import AboutScene from './components/AboutScene.vue'
 import type { Theme } from 'vitepress'
 import './style.css'
 
@@ -10,6 +11,7 @@ export default {
   enhanceApp({ app, router, siteData }) {
     app.component('ProjectAccordion', ProjectAccordion)
     app.component('ProjectIntro', ProjectIntro)
+    app.component('AboutScene', AboutScene)
   }
 } satisfies Theme
 

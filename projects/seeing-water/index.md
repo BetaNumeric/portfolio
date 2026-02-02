@@ -2,20 +2,19 @@
 layout: project
 title: Seeing Water
 year: 2020
-heroImage: /projects/seeing-water/seeing_water_header.jpg
-relatedProjects:
-  - title: Recursive Emergence
-    link: /projects/recursive-emergence
-    image: /assets/recursive-emergence.jpg
-  - title: Time Scale
-    link: /projects/time-scale
-    image: /assets/time-scale.jpg
-  - title: Breathing Trees
-    link: /projects/breathing-trees
-    image: /assets/breathing-trees.jpg
+description: "An installation exploring the visual nature of water and its relationship to the eye."
+heroImage: /projects/seeing-water/header.jpg
+previewMedia: /projects/seeing-water/seeing_water.mp4
+gallery:
+  - /projects/seeing-water/gallery/seeing_water_0.jpg
+  - /projects/seeing-water/gallery/seeing_water_1.jpg
+  - /projects/seeing-water/gallery/seeing_water_2.jpg
+  - /projects/seeing-water/gallery/seeing_water_3.jpg
+  - /projects/seeing-water/gallery/seeing_water_4.jpg
+  - /projects/seeing-water/gallery/seeing_water_5.jpg
 ---
 
-<ProjectIntro video="/projects/seeing-water/seeing_water_loop.mp4" fullVideo="https://youtu.be/1zrsLcYZ11E">
+<ProjectIntro video="/projects/seeing-water/seeing_water.mp4" stillImage="/projects/seeing-water/seeing_water_still.jpg" fullVideo="https://youtu.be/1zrsLcYZ11E">
 
 **DESCRIPTION**
 
