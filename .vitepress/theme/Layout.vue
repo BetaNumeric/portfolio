@@ -4,6 +4,7 @@ import { useData, useRoute, withBase } from 'vitepress'
 import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
 import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
+import HomeHero from './components/HomeHero.vue'
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -324,27 +325,8 @@ const handleLeave = (event: MouseEvent) => {
       </div>
     </header>
 
-    <section v-if="isHome" class="hero-section">
-      <section class="hero-media">
-        <video
-          v-if="frontmatter.heroMedia?.video"
-          class="hero-media__asset"
-          :src="withBase(frontmatter.heroMedia.video)"
-          autoplay
-          muted
-          loop
-          playsinline
-          preload="metadata"
-        ></video>
-        <img
-          v-else-if="frontmatter.heroMedia?.image"
-          class="hero-media__asset"
-          :src="withBase(frontmatter.heroMedia.image)"
-          :alt="frontmatter.heroMedia.alt || 'Featured work'"
-          loading="lazy"
-        />
-        <div v-else class="hero-media__placeholder" aria-hidden="true"></div>
-      </section>
+    <section v-if="isHome">
+      <HomeHero />
     </section>
 
     <!-- Full Width Project Hero -->
