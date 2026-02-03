@@ -3,9 +3,9 @@ layout: project
 title: Algorithmic Drawing
 year: 2022
 description: "A digital plotter that draws images in homage to Vera Molnár"
-heroImage: /projects/algorithmic-drawing/algorithmic_drawing.jpg
+heroImage: /projects/algorithmic-drawing/gallery/algorithmic_drawing_0.jpg
 heroComponent: AlgorithmicDrawingEmbed
-previewMedia: /projects/algorithmic-drawing/
+previewMedia: /projects/algorithmic-drawing/algorithmic_drawing.gif
 gallery:
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_0.jpg
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_1.jpg
