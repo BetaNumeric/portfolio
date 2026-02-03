@@ -69,8 +69,8 @@ const toggle = () => {
 .accordion-content.center-images :deep(img) {
   display: block;
   margin: 0 auto;
-  width: 50%;
-  max-width: 50%;
+  width: 72svh;
+  max-width: 72svh;
 }
 
 @media (max-width: 720px) {
