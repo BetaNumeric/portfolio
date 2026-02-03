@@ -81,4 +81,5 @@ Hovering over the events or clicking on them can show additional information, th
 ![presentation](/projects/time-scale/presentation_3.jpg)
 
 To present the program I used two projectors, each facing a different wall, connected at the edge. The past and the future were at a right angle to each other, connected in the corner. In the middle I put a mouse on a pedestal to interact with the timeline. My intention was for it to be more immersive, by wrapping around the room and having depth to it.
+
 </ProjectAccordion>

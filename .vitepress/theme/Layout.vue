@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, withBase } from 'vitepress'
 import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
+import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -348,8 +349,7 @@ const handleLeave = (event: MouseEvent) => {
 
     <!-- Full Width Project Hero -->
     <TimeScaleEmbed v-if="isProject && frontmatter.heroComponent === 'TimeScaleEmbed'" />
-    <div v-else-if="isProject && frontmatter.heroImage" class="project-hero-fullscreen" :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"></div>
-
+      <AlgorithmicDrawingEmbed v-else-if="isProject && frontmatter.heroComponent === 'AlgorithmicDrawingEmbed'" />
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
 

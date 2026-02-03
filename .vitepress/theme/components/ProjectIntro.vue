@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { withBase } from 'vitepress'
-import lottie from 'lottie-web'
+// load lottie-web dynamically to avoid SSR/window errors
 
 const props = defineProps<{
   video?: string
@@ -53,13 +53,16 @@ const closeLightbox = () => {
 
 onMounted(() => {
   if (lottieContainer.value) {
-    lottie.loadAnimation({
-      container: lottieContainer.value,
-      renderer: 'svg',
-      loop: true,
-      autoplay: true,
-      path: withBase('/assets/lotties/play.json')
-    })
+    import('lottie-web').then((mod) => {
+      const lottie = (mod && (mod.default ?? mod))
+      lottie.loadAnimation({
+        container: lottieContainer.value,
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: withBase('/assets/lotties/play.json')
+      })
+    }).catch((e) => console.warn('failed to load lottie-web', e))
   }
 })
 

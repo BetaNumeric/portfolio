@@ -2,26 +2,31 @@
 import { ref } from 'vue'
 
 const props = defineProps<{
-  title: string
+  title?: string
   defaultOpen?: boolean
+  /** When true the accordion is always open and no trigger/title is shown */
+  alwaysOpen?: boolean
+  /** When true, images inside the accordion are centered at half-width */
+  centerImages?: boolean
 }>()
 
-const isOpen = ref(props.defaultOpen ?? false)
+const isOpen = ref(props.alwaysOpen ? true : (props.defaultOpen ?? false))
 
 const toggle = () => {
+  if (props.alwaysOpen) return
   isOpen.value = !isOpen.value
 }
 </script>
 
 <template>
   <div class="project-accordion">
-    <div class="section-trigger" @click="toggle">
+    <div v-if="!props.alwaysOpen" class="section-trigger" @click="toggle">
        <h2>{{ title }}</h2>
        <img class="chevron" :class="{ 'is-open': isOpen }" src="/assets/icons/chevron_w.svg" alt="Toggle" />
     </div>
-    
-    <div class="accordion-content" :class="{ 'is-open': isOpen }" v-show="isOpen">
-        <slot></slot>
+
+    <div class="accordion-content" :class="{ 'is-open': isOpen, 'center-images': props.centerImages }" v-show="isOpen">
+      <slot></slot>
     </div>
   </div>
 </template>
@@ -59,5 +64,19 @@ const toggle = () => {
 
 .section-trigger .chevron.is-open {
   transform: rotate(0deg); /* Point up/open? User said it's pointing down by default. */
+}
+
+.accordion-content.center-images :deep(img) {
+  display: block;
+  margin: 0 auto;
+  width: 50%;
+  max-width: 50%;
+}
+
+@media (max-width: 720px) {
+  .accordion-content.center-images :deep(img) {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 </style>

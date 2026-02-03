@@ -1,7 +1,7 @@
 <template>
   <ClientOnly>
-    <div :class="['timescale-hero', { 'force-loader': forceLoader }]" @wheel="handleWheel" @mouseenter="isHovering = true" @mouseleave="isHovering = false">
-      <div id="program"></div>
+    <div :class="['algo-hero', { 'force-loader': forceLoader }]" @wheel="handleWheel" @mouseenter="isHovering = true" @mouseleave="isHovering = false">
+      <div id="p5_container0"></div>
       <div v-show="isLoading || forceLoader" class="loading-overlay" ref="lottieContainer">
         <div class="spinner"></div>
       </div>
@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
-// lottie-web imports window at module-eval time; load dynamically in onMounted
+// load lottie-web dynamically in onMounted to avoid SSR errors
 
 let scriptsLoaded = false
 const isLoading = ref(true)
@@ -20,7 +20,7 @@ const isHovering = ref(false)
 const forceLoader = ref(false)
 // expose quick test handle on window for debugging from console (guard for SSR)
 if (typeof window !== 'undefined') {
-  ;(window as any).__TimeScale_forceLoader = forceLoader
+  ;(window as any).__Algo_forceLoader = forceLoader
 }
 const lottieContainer = ref<HTMLDivElement | null>(null)
 
@@ -36,7 +36,7 @@ onMounted(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('forceLoader') === '1') {
       forceLoader.value = true
-      console.info('[TimeScaleEmbed] forceLoader enabled via query param')
+      console.info('[AlgorithmicDrawingEmbed] forceLoader enabled via query param')
     }
   } catch (e) {
     /* ignore */
@@ -55,10 +55,10 @@ onMounted(() => {
           autoplay: true,
           path: withBase('/assets/lotties/loading-check-mark.json')
         })
-        console.info('[TimeScaleEmbed] lottie animation initialized')
+        console.info('[AlgorithmicDrawingEmbed] lottie animation initialized')
       }
     }).catch((e) => {
-      console.warn('[TimeScaleEmbed] failed to load lottie-web', e)
+      console.warn('[AlgorithmicDrawingEmbed] failed to load lottie-web', e)
     })
   }
 
@@ -67,18 +67,18 @@ onMounted(() => {
   
   // Check if p5 is already loaded
   if ((window as any).p5) {
-    loadTimeScript()
+    loadSketchScript()
     return
   }
   
   // Load p5.js
   const p5Script = document.createElement('script')
-  p5Script.src = 'https://cdn.jsdelivr.net/npm/p5@1.7.0/lib/p5.js'
+  p5Script.src = 'https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js'
   p5Script.type = 'text/javascript'
   
-  // Load the time_web.js after p5.js loads
+  // Load the sketch script after p5.js loads
   p5Script.onload = () => {
-    loadTimeScript()
+    loadSketchScript()
   }
   
   p5Script.onerror = () => {
@@ -93,7 +93,9 @@ onMounted(() => {
     // If forceLoader is on, keep showing loader
     if (forceLoader.value) return
 
-    const canvas = document.querySelector('#program canvas') as HTMLCanvasElement
+    const container = document.querySelector('#p5_container0')
+    const canvas = container ? container.querySelector('canvas') : document.querySelector('canvas') as HTMLCanvasElement
+
     if (canvas) {
       // Check if canvas has actual content by getting image data
       try {
@@ -112,11 +114,18 @@ onMounted(() => {
           if (hasContent) {
             isLoading.value = false
             clearInterval(checkSketchLoaded)
-            console.info('[TimeScaleEmbed] sketch rendered, hiding loader')
+            console.info('[AlgorithmicDrawingEmbed] sketch rendered, hiding loader')
           }
+        } else {
+           // webgl context or other fallback
+           isLoading.value = false
+           clearInterval(checkSketchLoaded)
         }
       } catch (e) {
-        // If we can't access canvas, just assume it's loading
+        // If we can't access canvas, just assume it's loading, or if cross-origin issues
+        // We might just want to hide loader if canvas exists
+         isLoading.value = false
+         clearInterval(checkSketchLoaded)
       }
     }
   }, 100)
@@ -126,22 +135,22 @@ onMounted(() => {
     if (!forceLoader.value) {
       isLoading.value = false
       clearInterval(checkSketchLoaded)
-      console.info('[TimeScaleEmbed] loader timeout, hiding loader')
+      console.info('[AlgorithmicDrawingEmbed] loader timeout, hiding loader')
     } else {
-      console.info('[TimeScaleEmbed] forceLoader active, keeping loader visible')
+      console.info('[AlgorithmicDrawingEmbed] forceLoader active, keeping loader visible')
     }
-  }, 30000)
+  }, 10000)
 })
 
-function loadTimeScript() {
-  const timeScript = document.createElement('script')
-  timeScript.src = 'https://cdn.jsdelivr.net/gh/BetaNumeric/time@smaller/time_web.js'
-  timeScript.type = 'text/javascript'
-  timeScript.onerror = () => {
-    console.error('Failed to load time_web.js')
+function loadSketchScript() {
+  const sketchScript = document.createElement('script')
+  sketchScript.src = 'https://q9qpn4.csb.app/sketch.js'
+  sketchScript.type = 'text/javascript'
+  sketchScript.onerror = () => {
+    console.error('Failed to load sketch.js')
     isLoading.value = false
   }
-  document.head.appendChild(timeScript)
+  document.head.appendChild(sketchScript)
 }
 
 onUnmounted(() => {
@@ -149,58 +158,68 @@ onUnmounted(() => {
   if ((window as any).remove) {
     (window as any).remove()
   }
+  // Also try to remove the p5 object if attached to window to allow clean reload
+  // but be careful if other pages need it. For now, maybe just remove().
 })
 </script>
 
 <style scoped>
-.timescale-hero {
+.algo-hero {
   width: 100%;
   height: 60vh;
   position: relative;
   margin-top: 60px; /* Navbar height */
+  overflow: hidden;
+  background-color: var(--site-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid var(--site-border);
 }
 
-#program {
+.algo-hero.force-loader .loading-overlay {
+  display: flex !important;
+}
+
+#p5_container0 {
   width: 100%;
   height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+:deep(canvas) {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .loading-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100px;
-  height: 100px;
-  pointer-events: none;
-  z-index: 1000; /* Bring on top for debugging */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--site-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
 }
 
-/* Debug helper: show loader when forced via query param */
-.timescale-hero.force-loader .loading-overlay {
-  display: block;
-}
-
-/* Simple fallback spinner */
 .spinner {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--site-border); /* Light grey */
+  border-top: 4px solid var(--site-text); /* Blue */
   border-radius: 50%;
-  border: 6px solid rgba(255,255,255,0.2);
-  border-top-color: rgba(255,255,255,0.9);
-  animation: ts-spin 1s linear infinite;
-  margin: 0 auto;
+  animation: spin 1s linear infinite;
+  display: none; /* Hidden by default, shown if lottie fails or while lottie loads */
 }
 
-@keyframes ts-spin {
-  to { transform: rotate(360deg); }
-}
-</style>
-
-/* Light mode overrides (unscoped so it matches html.light-mode) */
-<style>
-.light-mode .timescale-hero .spinner {
-  border: 6px solid rgba(0,0,0,0.12);
-  border-top-color: rgba(0,0,0,0.85);
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
