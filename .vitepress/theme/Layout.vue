@@ -312,10 +312,14 @@ const handleLeave = (event: MouseEvent) => {
           <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]">
             {{ item.text }}
           </a>
-          <button @click="toggleTheme" class="theme-toggle" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-            {{ isDark ? 'Light' : 'Dark' }}
-          </button>
         </nav>
+      </div>
+      <div class="site-header__actions">
+        <div class="site-header__actions-inner">
+          <button @click="toggleTheme" :class="['theme-toggle', { 'is-dark': isDark }]" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <span class="sr-only">{{ isDark ? 'Light' : 'Dark' }}</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -573,6 +577,9 @@ const handleLeave = (event: MouseEvent) => {
             <span v-else>{{ link.name }}</span>
           </a>
         </div>
+        <button :class="['footer-toggle','theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+          <span class="sr-only">{{ isDark ? 'Light' : 'Dark' }}</span>
+        </button>
       </div>
     </footer>
   </div>
