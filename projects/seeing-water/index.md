@@ -24,7 +24,7 @@ I examined the visual nature of water and its relationship to the eye. Like the 
 
 </ProjectIntro>
 
-<ProjectAccordion title="Read More">
+<ProjectAccordion :alwaysOpen="true">
 
 Water defines the way we see. The spectrum of visible light is a remnant from a time when all life was surrounded by water. When eyes developed, they adapted to the only part of the electromagnetic spectrum that could penetrate water without being absorbed. That's why water is transparent. As eyes evolved, they started to use water as a refractive, deformable material to let in more light and focus the world around us.
 

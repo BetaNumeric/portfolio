@@ -26,7 +26,7 @@ This project was in part sponsored by [HEC](https://www.hfk-bremen.de/de/pressem
 
 </ProjectIntro>
 
-<ProjectAccordion title="Read More">
+<ProjectAccordion :alwaysOpen="true">
 
 To tap into the mesmerizing and thought-provoking properties of video feedback loops and their emergent fractal patterns, I built a contraption that uses multiple projectors pointing on the same screen as a camera which feeds all these projectors with what it sees. The projectors are able to move on three axes as they throw the camera’s view on the screen. The images overlap and influence each other and when all the settings are just right, fractal-like patterns quickly emerge, stabilize, and morph from one shape to another. Stepping in front of this setup you can influence the phenomenon, disturb the fractals by casting shadows, or become part of the projection screen and see yourself propagating down into infinity.
 

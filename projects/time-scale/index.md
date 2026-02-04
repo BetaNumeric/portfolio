@@ -21,17 +21,17 @@ In this project, I programmed an interactive timeline, with which one can explor
 
 My goal was to help better understand our size and place in the temporal dimension of our universe.
 
-The project was inspired, among other things, by Charles and Ray Eames' short film "Powers of Ten" (1968) which was based on Kees Boeke's book "Cosmic View: The Universe in 40 Jumps" (1957).
-
 </ProjectIntro>
 
-<ProjectAccordion title="Read More">
+<ProjectAccordion :alwaysOpen="true">
+
+The project was inspired, among other things, by Charles and Ray Eames' short film "Powers of Ten" (1968) which was based on Kees Boeke's book "Cosmic View: The Universe in 40 Jumps" (1957).
+
 Displaying data over a very wide range of values is usually done with a logarithmic scale. This however distorts the visualization and usually doesn't make intuitive sense.
 
 So for my visualization I wanted to display the data linearly at any point in time, but make the viewer be able to manipulate the field of view logarithmically. That way a more complete understanding of the data can emerge.
 
 Similar to how programs like Google Earth can give us a better idea of the space around us, by allowing the user to zoom in and out, I hope my program can help build a better mental map of the time that surrounds us
-
 
 </ProjectAccordion>
 

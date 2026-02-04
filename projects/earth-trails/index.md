@@ -21,7 +21,7 @@ With this project my goal was to show earth's movement as a planet through space
 
 </ProjectIntro>
 
-<ProjectAccordion title="Read More">
+<ProjectAccordion :alwaysOpen="true">
 
 Essentially the machine is a camera that uses a laser, a motor and gears to be stationary in respect to fixed stars and can thereby see the rotation of our planet.
 

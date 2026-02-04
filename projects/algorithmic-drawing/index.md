@@ -13,7 +13,6 @@ gallery:
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_3.jpg
 ---
 
-
 <ProjectAccordion :alwaysOpen="true" :centerImages="true">
 
 **DESCRIPTION**

@@ -22,7 +22,7 @@ On 23.10.2021 it was awarded the Young Talent Prize from the realtime – intern
 
 </ProjectIntro>
 
-<ProjectAccordion title="Read More">
+<ProjectAccordion :alwaysOpen="true">
 For me, one of the most fascinating facts about trees is the way they get most of their mass. It doesn't come from the ground, (otherwise, a big hole would form under each of them) but from us.
 
 We exhale the carbon that the trees absorb and turn into their bodies. The trees exhale the oxygen that we use to burn the carbon of other living things in order to stay alive.
@@ -33,11 +33,6 @@ Nashashibi's track „Luft und Holz II“ contains wood noises as well as breath
 
 
 The video follows a journey through different seasons and times of day in a forest environment, with the trees appearing to breathe in sync with the water sounds.
-
-
-</ProjectAccordion>
-
-<ProjectAccordion title="Development">
 
 We got involved in the Realtime Festival competition through a film group at the Hochschule für Künste in Bremen and worked on the project within the group, but most of all, in our free time.
 

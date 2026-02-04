@@ -634,7 +634,7 @@ a {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 3rem;
-  margin-bottom: 4rem;
+  margin-bottom: 2rem;
   align-items: start;
 }
 
@@ -1199,10 +1199,20 @@ a {
     line-height: 1.6;
 }
 
+/* Ensure links in project/content sections are full-opacity (theme-aware) */
+.inner-content a,
+.development-content a,
+.accordion-content a,
+.project-intro-text a,
+.project-content-wrapper a {
+  color: var(--site-text);
+  opacity: 1;
+}
+
 .inner-content p,
 .development-content p,
 .accordion-content p {
-    margin-bottom: 1.5em;
+    margin-bottom: 0.1em;
 }
 
 .inner-content img,

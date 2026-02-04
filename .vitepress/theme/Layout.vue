@@ -331,7 +331,12 @@ const handleLeave = (event: MouseEvent) => {
 
     <!-- Full Width Project Hero -->
     <TimeScaleEmbed v-if="isProject && frontmatter.heroComponent === 'TimeScaleEmbed'" />
-      <AlgorithmicDrawingEmbed v-else-if="isProject && frontmatter.heroComponent === 'AlgorithmicDrawingEmbed'" />
+    <AlgorithmicDrawingEmbed v-else-if="isProject && frontmatter.heroComponent === 'AlgorithmicDrawingEmbed'" />
+    <div
+      v-else-if="isProject && frontmatter.heroImage"
+      class="project-hero-fullscreen"
+      :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"
+    ></div>
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
 
