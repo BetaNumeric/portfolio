@@ -2,7 +2,7 @@
   <ClientOnly>
     <div :class="['algo-hero', { 'force-loader': forceLoader }]" @wheel="handleWheel" @mouseenter="isHovering = true" @mouseleave="isHovering = false">
       <div id="p5_container0"></div>
-      <div v-show="isLoading || forceLoader" class="loading-overlay" ref="lottieContainer">
+      <div v-show="isLoading || forceLoader" class="loading-overlay">
         <div class="spinner"></div>
       </div>
     </div>
@@ -12,9 +12,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
-// load lottie-web dynamically in onMounted to avoid SSR errors
+import { loadScriptOnce } from '../utils/loadScript'
 
-let scriptsLoaded = false
+let scriptsPromise: Promise<void> | null = null
 const isLoading = ref(true)
 const isHovering = ref(false)
 const forceLoader = ref(false)
@@ -22,7 +22,22 @@ const forceLoader = ref(false)
 if (typeof window !== 'undefined') {
   ;(window as any).__Algo_forceLoader = forceLoader
 }
-const lottieContainer = ref<HTMLDivElement | null>(null)
+
+let checkSketchLoaded: number | undefined
+let loaderTimeout: number | undefined
+let p5GlobalInstance: any = null
+
+function startGlobalSketch() {
+  const w = window as any
+  // Tear down any previously running global-mode sketch created by our embeds.
+  if (w.__VP_VENDOR_P5_GLOBAL?.remove) {
+    try { w.__VP_VENDOR_P5_GLOBAL.remove() } catch {}
+  }
+  if (typeof w.p5 === 'function') {
+    p5GlobalInstance = new w.p5()
+    w.__VP_VENDOR_P5_GLOBAL = p5GlobalInstance
+  }
+}
 
 const handleWheel = (e: WheelEvent) => {
   if (isHovering.value) {
@@ -42,54 +57,22 @@ onMounted(() => {
     /* ignore */
   }
 
-  // Load lottie animation
-  if (lottieContainer.value) {
-    import('lottie-web').then((mod) => {
-      const lottie = (mod && (mod.default ?? mod))
-      const container = lottieContainer.value
-      if (container) {
-        lottie.loadAnimation({
-          container: container,
-          renderer: 'svg',
-          loop: true,
-          autoplay: true,
-          path: withBase('/assets/lotties/loading-check-mark.json')
-        })
-        console.info('[AlgorithmicDrawingEmbed] lottie animation initialized')
-      }
-    }).catch((e) => {
-      console.warn('[AlgorithmicDrawingEmbed] failed to load lottie-web', e)
+  // Ensure vendor scripts are present, then (re)start the global-mode sketch for this hero.
+  if (!scriptsPromise) {
+    scriptsPromise = (async () => {
+      await loadScriptOnce(withBase('/vendor/p5/p5.js'))
+      await loadScriptOnce(withBase('/vendor/sketches/algorithmic_drawing.js'))
+    })()
+  }
+  scriptsPromise
+    .then(() => startGlobalSketch())
+    .catch((e) => {
+      console.error('[AlgorithmicDrawingEmbed] Failed to load vendor scripts', e)
+      isLoading.value = false
     })
-  }
-
-  // Avoid loading scripts multiple times
-  if (scriptsLoaded) return
-  
-  // Check if p5 is already loaded
-  if ((window as any).p5) {
-    loadSketchScript()
-    return
-  }
-  
-  // Load p5.js
-  const p5Script = document.createElement('script')
-  p5Script.src = 'https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js'
-  p5Script.type = 'text/javascript'
-  
-  // Load the sketch script after p5.js loads
-  p5Script.onload = () => {
-    loadSketchScript()
-  }
-  
-  p5Script.onerror = () => {
-    console.error('Failed to load p5.js')
-  }
-  
-  document.head.appendChild(p5Script)
-  scriptsLoaded = true
 
   // Check if sketch has actually rendered content
-  const checkSketchLoaded = setInterval(() => {
+  checkSketchLoaded = window.setInterval(() => {
     // If forceLoader is on, keep showing loader
     if (forceLoader.value) return
 
@@ -113,28 +96,28 @@ onMounted(() => {
           }
           if (hasContent) {
             isLoading.value = false
-            clearInterval(checkSketchLoaded)
+            if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
             console.info('[AlgorithmicDrawingEmbed] sketch rendered, hiding loader')
           }
         } else {
            // webgl context or other fallback
            isLoading.value = false
-           clearInterval(checkSketchLoaded)
+           if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
         }
       } catch (e) {
         // If we can't access canvas, just assume it's loading, or if cross-origin issues
         // We might just want to hide loader if canvas exists
          isLoading.value = false
-         clearInterval(checkSketchLoaded)
+         if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
       }
     }
   }, 100)
 
   // Timeout after 10 seconds to be safe (unless forceLoader)
-  setTimeout(() => {
+  loaderTimeout = window.setTimeout(() => {
     if (!forceLoader.value) {
       isLoading.value = false
-      clearInterval(checkSketchLoaded)
+      if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
       console.info('[AlgorithmicDrawingEmbed] loader timeout, hiding loader')
     } else {
       console.info('[AlgorithmicDrawingEmbed] forceLoader active, keeping loader visible')
@@ -142,18 +125,20 @@ onMounted(() => {
   }, 10000)
 })
 
-function loadSketchScript() {
-  const sketchScript = document.createElement('script')
-  sketchScript.src = 'https://q9qpn4.csb.app/sketch.js'
-  sketchScript.type = 'text/javascript'
-  sketchScript.onerror = () => {
-    console.error('Failed to load sketch.js')
-    isLoading.value = false
-  }
-  document.head.appendChild(sketchScript)
-}
-
 onUnmounted(() => {
+  if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
+  if (loaderTimeout) window.clearTimeout(loaderTimeout)
+
+  // Prefer stopping the global sketch instance we created for this embed.
+  const inst = p5GlobalInstance
+  if (p5GlobalInstance?.remove) {
+    try { p5GlobalInstance.remove() } catch {}
+    p5GlobalInstance = null
+  }
+  const w = window as any
+  if (w.__VP_VENDOR_P5_GLOBAL === inst) {
+    w.__VP_VENDOR_P5_GLOBAL = null
+  }
   // Clean up: remove the p5 instance if it exists
   if ((window as any).remove) {
     (window as any).remove()
@@ -215,7 +200,6 @@ onUnmounted(() => {
   border-top: 4px solid var(--site-text); /* Blue */
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  display: none; /* Hidden by default, shown if lottie fails or while lottie loads */
 }
 
 @keyframes spin {

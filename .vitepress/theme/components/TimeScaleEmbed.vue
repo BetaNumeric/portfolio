@@ -2,7 +2,7 @@
   <ClientOnly>
     <div :class="['timescale-hero', { 'force-loader': forceLoader }]" @wheel="handleWheel" @mouseenter="isHovering = true" @mouseleave="isHovering = false">
       <div id="program"></div>
-      <div v-show="isLoading || forceLoader" class="loading-overlay" ref="lottieContainer">
+      <div v-show="isLoading || forceLoader" class="loading-overlay">
         <div class="spinner"></div>
       </div>
     </div>
@@ -12,9 +12,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
-// lottie-web imports window at module-eval time; load dynamically in onMounted
+import { loadScriptOnce } from '../utils/loadScript'
 
-let scriptsLoaded = false
+let scriptsPromise: Promise<void> | null = null
 const isLoading = ref(true)
 const isHovering = ref(false)
 const forceLoader = ref(false)
@@ -22,7 +22,21 @@ const forceLoader = ref(false)
 if (typeof window !== 'undefined') {
   ;(window as any).__TimeScale_forceLoader = forceLoader
 }
-const lottieContainer = ref<HTMLDivElement | null>(null)
+
+let checkSketchLoaded: number | undefined
+let loaderTimeout: number | undefined
+let p5GlobalInstance: any = null
+
+function startGlobalSketch() {
+  const w = window as any
+  if (w.__VP_VENDOR_P5_GLOBAL?.remove) {
+    try { w.__VP_VENDOR_P5_GLOBAL.remove() } catch {}
+  }
+  if (typeof w.p5 === 'function') {
+    p5GlobalInstance = new w.p5()
+    w.__VP_VENDOR_P5_GLOBAL = p5GlobalInstance
+  }
+}
 
 const handleWheel = (e: WheelEvent) => {
   if (isHovering.value) {
@@ -42,54 +56,21 @@ onMounted(() => {
     /* ignore */
   }
 
-  // Load lottie animation
-  if (lottieContainer.value) {
-    import('lottie-web').then((mod) => {
-      const lottie = (mod && (mod.default ?? mod))
-      const container = lottieContainer.value
-      if (container) {
-        lottie.loadAnimation({
-          container: container,
-          renderer: 'svg',
-          loop: true,
-          autoplay: true,
-          path: withBase('/assets/lotties/loading-check-mark.json')
-        })
-        console.info('[TimeScaleEmbed] lottie animation initialized')
-      }
-    }).catch((e) => {
-      console.warn('[TimeScaleEmbed] failed to load lottie-web', e)
+  if (!scriptsPromise) {
+    scriptsPromise = (async () => {
+      await loadScriptOnce(withBase('/vendor/p5/p5.js'))
+      await loadScriptOnce(withBase('/vendor/sketches/time_web.js'))
+    })()
+  }
+  scriptsPromise
+    .then(() => startGlobalSketch())
+    .catch((e) => {
+      console.error('[TimeScaleEmbed] Failed to load vendor scripts', e)
+      isLoading.value = false
     })
-  }
-
-  // Avoid loading scripts multiple times
-  if (scriptsLoaded) return
-  
-  // Check if p5 is already loaded
-  if ((window as any).p5) {
-    loadTimeScript()
-    return
-  }
-  
-  // Load p5.js
-  const p5Script = document.createElement('script')
-  p5Script.src = 'https://cdn.jsdelivr.net/npm/p5@1.7.0/lib/p5.js'
-  p5Script.type = 'text/javascript'
-  
-  // Load the time_web.js after p5.js loads
-  p5Script.onload = () => {
-    loadTimeScript()
-  }
-  
-  p5Script.onerror = () => {
-    console.error('Failed to load p5.js')
-  }
-  
-  document.head.appendChild(p5Script)
-  scriptsLoaded = true
 
   // Check if sketch has actually rendered content
-  const checkSketchLoaded = setInterval(() => {
+  checkSketchLoaded = window.setInterval(() => {
     // If forceLoader is on, keep showing loader
     if (forceLoader.value) return
 
@@ -111,7 +92,7 @@ onMounted(() => {
           }
           if (hasContent) {
             isLoading.value = false
-            clearInterval(checkSketchLoaded)
+            if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
             console.info('[TimeScaleEmbed] sketch rendered, hiding loader')
           }
         }
@@ -122,10 +103,10 @@ onMounted(() => {
   }, 100)
 
   // Timeout after 10 seconds to be safe (unless forceLoader)
-  setTimeout(() => {
+  loaderTimeout = window.setTimeout(() => {
     if (!forceLoader.value) {
       isLoading.value = false
-      clearInterval(checkSketchLoaded)
+      if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
       console.info('[TimeScaleEmbed] loader timeout, hiding loader')
     } else {
       console.info('[TimeScaleEmbed] forceLoader active, keeping loader visible')
@@ -133,18 +114,19 @@ onMounted(() => {
   }, 30000)
 })
 
-function loadTimeScript() {
-  const timeScript = document.createElement('script')
-  timeScript.src = 'https://cdn.jsdelivr.net/gh/BetaNumeric/time@smaller/time_web.js'
-  timeScript.type = 'text/javascript'
-  timeScript.onerror = () => {
-    console.error('Failed to load time_web.js')
-    isLoading.value = false
-  }
-  document.head.appendChild(timeScript)
-}
-
 onUnmounted(() => {
+  if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
+  if (loaderTimeout) window.clearTimeout(loaderTimeout)
+
+  const inst = p5GlobalInstance
+  if (p5GlobalInstance?.remove) {
+    try { p5GlobalInstance.remove() } catch {}
+    p5GlobalInstance = null
+  }
+  const w = window as any
+  if (w.__VP_VENDOR_P5_GLOBAL === inst) {
+    w.__VP_VENDOR_P5_GLOBAL = null
+  }
   // Clean up: remove the p5 instance if it exists
   if ((window as any).remove) {
     (window as any).remove()
