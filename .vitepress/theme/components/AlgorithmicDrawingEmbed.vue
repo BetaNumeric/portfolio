@@ -25,18 +25,10 @@ if (typeof window !== 'undefined') {
 
 let checkSketchLoaded: number | undefined
 let loaderTimeout: number | undefined
-let p5GlobalInstance: any = null
 
-function startGlobalSketch() {
+function mountVendorSketches() {
   const w = window as any
-  // Tear down any previously running global-mode sketch created by our embeds.
-  if (w.__VP_VENDOR_P5_GLOBAL?.remove) {
-    try { w.__VP_VENDOR_P5_GLOBAL.remove() } catch {}
-  }
-  if (typeof w.p5 === 'function') {
-    p5GlobalInstance = new w.p5()
-    w.__VP_VENDOR_P5_GLOBAL = p5GlobalInstance
-  }
+  if (typeof w.__VP_ALGO_MOUNT === 'function') w.__VP_ALGO_MOUNT()
 }
 
 const handleWheel = (e: WheelEvent) => {
@@ -65,7 +57,7 @@ onMounted(() => {
     })()
   }
   scriptsPromise
-    .then(() => startGlobalSketch())
+    .then(() => mountVendorSketches())
     .catch((e) => {
       console.error('[AlgorithmicDrawingEmbed] Failed to load vendor scripts', e)
       isLoading.value = false
@@ -129,22 +121,8 @@ onUnmounted(() => {
   if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
   if (loaderTimeout) window.clearTimeout(loaderTimeout)
 
-  // Prefer stopping the global sketch instance we created for this embed.
-  const inst = p5GlobalInstance
-  if (p5GlobalInstance?.remove) {
-    try { p5GlobalInstance.remove() } catch {}
-    p5GlobalInstance = null
-  }
   const w = window as any
-  if (w.__VP_VENDOR_P5_GLOBAL === inst) {
-    w.__VP_VENDOR_P5_GLOBAL = null
-  }
-  // Clean up: remove the p5 instance if it exists
-  if ((window as any).remove) {
-    (window as any).remove()
-  }
-  // Also try to remove the p5 object if attached to window to allow clean reload
-  // but be careful if other pages need it. For now, maybe just remove().
+  if (typeof w.__VP_ALGO_UNMOUNT === 'function') w.__VP_ALGO_UNMOUNT()
 })
 </script>
 
