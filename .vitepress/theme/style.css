@@ -724,8 +724,8 @@ a {
 
 /* Project Gallery */
 .project-gallery {
-    margin-top: 4rem;
-    padding-top: 3rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
     border-top: 1px solid rgba(255,255,255,0.08);
 }
 .project-gallery h3 {
