@@ -346,8 +346,6 @@ const handleLeave = (event: MouseEvent) => {
             :key="project.title"
             :href="withBase(project.link)"
             class="project-card"
-            target="_blank"
-            rel="noreferrer"
             @mouseenter="handleEnter"
             @mouseleave="handleLeave"
             :ref="setProjectCardRef"
