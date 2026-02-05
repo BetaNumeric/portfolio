@@ -232,6 +232,12 @@ const setProjectCardRef = (el: any) => {
   }
 }
 
+// Mobile nav toggle
+const mobileNavOpen = ref(false)
+const toggleMobileNav = () => {
+  mobileNavOpen.value = !mobileNavOpen.value
+}
+
 let observer: IntersectionObserver | null = null
 
 onMounted(() => {
@@ -310,11 +316,16 @@ const handleLeave = (event: MouseEvent) => {
           <span class="site-title__divider">|</span>
           <span class="site-title__role">Portfolio</span>
         </a>
-        <nav class="site-nav" aria-label="Primary">
-          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]">
+        <nav :class="['site-nav', { 'is-open': mobileNavOpen }]" aria-label="Primary">
+          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]" @click="mobileNavOpen = false">
             {{ item.text }}
           </a>
         </nav>
+        <button class="nav-toggle" @click="toggleMobileNav" :aria-expanded="mobileNavOpen" aria-label="Toggle navigation">
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+        </button>
       </div>
       <div class="site-header__actions">
         <div class="site-header__actions-inner">

@@ -71,6 +71,27 @@ a {
   text-decoration: none;
 }
 
+/* Custom Scrollbar Styling */
+body::-webkit-scrollbar {
+  width: 12px;
+}
+
+body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0);
+}
+
+body::-webkit-scrollbar-thumb {
+  background: rgb(129, 129, 129);
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 142, 142, 1);
+}
+
+body::-webkit-scrollbar-thumb:active {
+  background: rgba(155, 155, 155, 1);
+}
+
 .site-shell {
   min-height: 100vh;
   display: flex;
@@ -265,7 +286,8 @@ a {
   display: grid;
   grid-template-columns: minmax(280px, 1.2fr) minmax(280px, 1fr);
   gap: 0;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
   max-width: 980px;
   margin: 0 auto;
   min-height: 240px;
@@ -577,6 +599,85 @@ a {
   .project-card__content {
     padding: 24px;
   }
+
+  /* Improve mobile project card visuals:
+     - Give the media a clear aspect ratio so the image on top isn't too thin
+     - Ensure a reasonable minimum card height for visual consistency
+     - Slightly reduce content padding for tight screens */
+  .project-card {
+    min-height: 360px;
+    align-items: stretch;
+  }
+
+  .project-card__media {
+    /* make media take up a fixed aspect so images are visible and consistent */
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
+  }
+
+  .project-card__content {
+    padding: 20px;
+  }
+}
+
+/* Mobile navigation toggle (hamburger) */
+.nav-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 36px;
+  height: 28px;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  margin-left: 12px;
+}
+.nav-toggle__bar {
+  display: block;
+  width: 100%;
+  height: 3px;
+  background: var(--site-text);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  /* Hide the nav by default on small screens; show via .is-open */
+  .site-nav {
+    display: none;
+  }
+
+  .site-nav.is-open {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 12px 8vw 18px;
+    background: var(--site-header-bg);
+    border-bottom: 1px solid var(--site-border);
+    z-index: 24;
+  }
+
+  /* Make links large and tappable */
+  .site-nav__link {
+    padding: 8px 0;
+    display: inline-flex;
+    font-size: 15px;
+  }
+
+  /* Show the toggle button (ensure it's visible) */
+  .nav-toggle { display: inline-flex; }
+}
+
+@media (min-width: 769px) {
+  .nav-toggle { display: none; }
 }
 
 /* Hide header toggle on small screens, show footer toggle instead */
