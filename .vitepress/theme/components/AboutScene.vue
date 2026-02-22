@@ -11,7 +11,7 @@ const MODEL_FILE_NAME = 'model/me.glb'
 const MODEL_URL = `https://raw.githubusercontent.com/${USER}/${REPO}/${BRANCH}/${MODEL_FILE_NAME}`
 
 // Start high - the optimizer will reduce this if needed
-const PARTICLE_COUNT = 2000000
+const PARTICLE_COUNT = 1000000
 
 // --- SHADERS ---
 const vertexShader = `
@@ -115,6 +115,9 @@ onMounted(() => {
     let frameCount = 0
     let lowFpsStreak = 0
     let highFpsStreak = 0
+    let scrollRaf = 0
+    let pausePhysicsUntil = 0
+    const SCROLL_PHYSICS_PAUSE_MS = 140
 
     const updateModelPosition = () => {
         const targetEl = document.getElementById('3d-target')
@@ -409,12 +412,26 @@ onMounted(() => {
     // --- ANIMATION LOOP ---
     const zoomScale = 3.5 / 3.0 
 
+    const onScroll = () => {
+        // Keep positioning responsive during scroll by prioritizing anchor sync.
+        pausePhysicsUntil = performance.now() + SCROLL_PHYSICS_PAUSE_MS
+        if (scrollRaf) return
+        scrollRaf = window.requestAnimationFrame(() => {
+            scrollRaf = 0
+            updateModelPosition()
+            renderer.render(scene, camera)
+        })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+
     function animate() {
         animationId = requestAnimationFrame(animate)
         updateModelPosition()
+        const nowTime = performance.now()
+        const shouldRunPhysics = nowTime >= pausePhysicsUntil
 
         // --- FAST ADAPTIVE OPTIMIZER ---
-        const currentTime = performance.now()
+        const currentTime = nowTime
         frameCount++
         const timeDiff = currentTime - lastFpsCheck
         
@@ -525,8 +542,8 @@ onMounted(() => {
         const interactionRadius = isInteracting ? targetRadius : 0.01
         const interactionRadiusSq = interactionRadius * interactionRadius
 
-        if (particles && originalPositions) {
-            const now = Date.now() * 0.006
+        if (particles && originalPositions && shouldRunPhysics) {
+            const phaseNow = Date.now() * 0.006
             const localViewAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(particles.quaternion.clone().invert()).normalize()
             
             for (let i = 0; i < activeParticleCount; i++) {
@@ -588,7 +605,7 @@ onMounted(() => {
                             vy += sy * swirl * influence
                             vz += sz * swirl * influence
                             
-                            const pulse = Math.sin(now + r * 6.28)
+                            const pulse = Math.sin(phaseNow + r * 6.28)
                             const rad = 0.05 * pulse * force
                             vx += (mDx / dist) * rad * influence
                             vy += (mDy / dist) * rad * influence
@@ -631,6 +648,7 @@ onMounted(() => {
     // CLEANUP
     onUnmounted(() => {
         cancelAnimationFrame(animationId)
+        if (scrollRaf) cancelAnimationFrame(scrollRaf)
         window.removeEventListener('contextmenu', onContextMenu)
         window.removeEventListener('mousemove', onMouseMove)
         window.removeEventListener('mousedown', onMouseDown)
@@ -639,6 +657,7 @@ onMounted(() => {
         window.removeEventListener('touchend', onTouchEnd)
         window.removeEventListener('touchmove', onTouchMove)
         window.removeEventListener('resize', onResize)
+        window.removeEventListener('scroll', onScroll)
         
         if (renderer) renderer.dispose()
         if (particles) {
