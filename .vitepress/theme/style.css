@@ -270,7 +270,7 @@ body::-webkit-scrollbar-thumb:active {
 
 .hero-subtitle {
   font-size: 17px;
-  line-height: 1.6;
+  line-height: 1.5;
   opacity: 0.65;
   margin: 0;
 }
@@ -278,7 +278,7 @@ body::-webkit-scrollbar-thumb:active {
 .project-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 26px;
+  gap: 50px;
   width: 100%;
   max-width: 1100px;
 }
@@ -289,13 +289,14 @@ body::-webkit-scrollbar-thumb:active {
   border-radius: 10px;
   border: 1px solid var(--site-border);
   display: grid;
-  grid-template-columns: minmax(280px, 1.2fr) minmax(280px, 1fr);
+  grid-template-columns: 1fr 0.75fr;
   gap: 0;
   align-items: stretch;
   width: 100%;
-  max-width: 980px;
+  max-width: 860px;
   margin: 0 auto;
-  min-height: 240px;
+  height: 300px;
+  min-height: 300px;
   overflow: hidden;
   transform: translateY(140px);
   transition: transform 0.6s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
@@ -312,16 +313,15 @@ body::-webkit-scrollbar-thumb:active {
 }
 
 .project-card__title {
-  font-weight: 600;
-  font-size: 22px;
-  letter-spacing: 0.02em;
+  margin: 20px 0 0;
+  font-weight: 400;
+  font-size: 24px;
 }
 
 .project-card__cta {
-  font-size: 13px;
-  opacity: 0.85;
+  font-size: 16px;
+  opacity: 1;
   text-transform: none;
-  letter-spacing: 0.02em;
 }
 
 .project-card__cta::after {
@@ -329,9 +329,9 @@ body::-webkit-scrollbar-thumb:active {
 }
 
 .project-card__desc {
-  font-size: 14.5px;
-  line-height: 1.6;
-  margin: 8px 0 28px;
+  font-size: 16px;
+  line-height: 20px;
+  margin: 10px 0 auto;
   opacity: 0.7;
 }
 
@@ -392,7 +392,7 @@ body::-webkit-scrollbar-thumb:active {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 32px 36px;
+  padding: 30px 30px;
   height: 100%;
   justify-content: center;
   background: var(--card-content-bg);
@@ -611,6 +611,7 @@ body::-webkit-scrollbar-thumb:active {
      - Slightly reduce content padding for tight screens */
   .project-card {
     min-height: 360px;
+    height: auto;
     align-items: stretch;
   }
 
@@ -756,7 +757,7 @@ body::-webkit-scrollbar-thumb:active {
 
 .project-intro-text {
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -1267,7 +1268,7 @@ body::-webkit-scrollbar-thumb:active {
 /* Content inside Read More */
 .inner-content p {
   margin-bottom: 1.5em;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .inner-content img {
@@ -1302,7 +1303,7 @@ body::-webkit-scrollbar-thumb:active {
 .accordion-content {
     color: var(--site-text-muted);
     font-size: 16px;
-    line-height: 1.6;
+    line-height: 1.5;
 }
 
 /* Ensure links in project/content sections are full-opacity (theme-aware) */
@@ -1343,7 +1344,7 @@ body::-webkit-scrollbar-thumb:active {
 .project-intro-text p {
   color: var(--site-text-muted);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.5;
   margin: 0 0 1.5em 0;
 }
 /* Social Icons */
