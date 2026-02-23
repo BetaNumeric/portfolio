@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, withBase } from 'vitepress'
 import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
@@ -40,6 +40,34 @@ const footerProjects = computed(() => {
 const isHome = computed(() => frontmatter.value.layout === 'home' || frontmatter.value.home)
 const isProject = computed(() => frontmatter.value.layout === 'project')
 const projects = computed(() => frontmatter.value.projects ?? projectsData)
+const defaultHomeGridLayout = computed<'single' | 'two'>(() => {
+  const requested = Number(frontmatter.value.projectGridColumns ?? 1)
+  return requested === 2 ? 'two' : 'single'
+})
+const HOME_GRID_LAYOUT_KEY = 'home-project-grid-layout'
+const homeGridLayout = ref<'single' | 'two'>(defaultHomeGridLayout.value)
+
+const getSavedHomeGridLayout = (): 'single' | 'two' | null => {
+  if (typeof window === 'undefined') return null
+  const saved = localStorage.getItem(HOME_GRID_LAYOUT_KEY)
+  if (saved === 'single' || saved === 'two') return saved
+  return null
+}
+
+const resolveHomeGridLayout = (): 'single' | 'two' => {
+  return getSavedHomeGridLayout() ?? defaultHomeGridLayout.value
+}
+
+const setHomeGridLayout = async (layout: 'single' | 'two') => {
+  if (homeGridLayout.value === layout) return
+  homeGridLayout.value = layout
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(HOME_GRID_LAYOUT_KEY, layout)
+  }
+  await nextTick()
+  syncProjectCardsWithViewport()
+}
+const isHomeTwoColumnCards = computed(() => isHome.value && homeGridLayout.value === 'two')
 const otherProjects = computed(() => {
   const candidates = projectsData.filter((project) => {
     if (!project?.link) return false
@@ -241,7 +269,30 @@ const toggleMobileNav = () => {
 
 let observer: IntersectionObserver | null = null
 
+const collectProjectCards = () => {
+  if (typeof document === 'undefined') return []
+  const cards = Array.from(document.querySelectorAll('#projects .project-card')) as HTMLElement[]
+  projectCardRefs.value = cards
+  return cards
+}
+
+const isInViewport = (el: HTMLElement) => {
+  const rect = el.getBoundingClientRect()
+  return rect.top < window.innerHeight * 0.95 && rect.bottom > 0
+}
+
+const syncProjectCardsWithViewport = () => {
+  const cards = collectProjectCards()
+  cards.forEach((card) => {
+    if (isInViewport(card)) {
+      card.classList.add('is-visible')
+    }
+    observer?.observe(card)
+  })
+}
+
 onMounted(() => {
+  homeGridLayout.value = resolveHomeGridLayout()
   window.addEventListener('scroll', handleScroll)
 
   observer = new IntersectionObserver(
@@ -255,11 +306,8 @@ onMounted(() => {
     { threshold: 0.1, rootMargin: '0px 0px 5% 0px' }
   )
 
-  // Reset cards and re-observe on each mount (fixes stale state on navigation)
-  projectCardRefs.value.forEach((card) => {
-    card.classList.remove('is-visible')
-    observer?.observe(card)
-  })
+  // Pick up any cards currently in view (and re-observe them) on initial mount.
+  syncProjectCardsWithViewport()
 })
 
 onUnmounted(() => {
@@ -268,11 +316,12 @@ onUnmounted(() => {
 })
 
 const resetProjectCards = () => {
-  projectCardRefs.value.forEach((card) => {
+  const cards = collectProjectCards()
+  cards.forEach((card) => {
     card.classList.remove('is-visible')
   })
   if (observer) {
-    projectCardRefs.value.forEach((card) => {
+    cards.forEach((card) => {
       observer?.observe(card)
     })
   }
@@ -283,6 +332,7 @@ watch(
   () => route.path,
   (newPath) => {
     if (isHome.value) {
+      homeGridLayout.value = resolveHomeGridLayout()
       // Use nextTick-like delay to ensure DOM is updated
       setTimeout(resetProjectCards, 0)
     }
@@ -356,13 +406,35 @@ const handleLeave = (event: MouseEvent) => {
     ></div>
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
+        <div class="project-grid-controls" v-if="projects.length > 1">
+          <div class="layout-toggle" role="group" aria-label="Project card layout">
+            <button
+              class="layout-toggle__btn"
+              :class="{ 'is-active': homeGridLayout === 'single' }"
+              type="button"
+              aria-label="Single column layout"
+              @click="setHomeGridLayout('single')"
+            >
+              <span class="layout-icon layout-icon--single" aria-hidden="true"></span>
+            </button>
+            <button
+              class="layout-toggle__btn"
+              :class="{ 'is-active': homeGridLayout === 'two' }"
+              type="button"
+              aria-label="Two column layout"
+              @click="setHomeGridLayout('two')"
+            >
+              <span class="layout-icon layout-icon--two" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
 
-        <section id="projects" class="project-grid">
+        <section id="projects" :class="['project-grid', { 'project-grid--two-col': isHomeTwoColumnCards }]">
           <a
             v-for="project in projects"
             :key="project.title"
             :href="withBase(project.link)"
-            class="project-card"
+            :class="['project-card', { 'project-card--stacked': isHomeTwoColumnCards }]"
             @mouseenter="handleEnter"
             @mouseleave="handleLeave"
             :ref="setProjectCardRef"
