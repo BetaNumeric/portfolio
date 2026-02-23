@@ -4,6 +4,7 @@ import { useData, useRoute, withBase } from 'vitepress'
 import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
 import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
+import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import HomeHero from './components/HomeHero.vue'
 
 // https://vitepress.dev/reference/runtime-api#usedata
@@ -343,6 +344,11 @@ const handleLeave = (event: MouseEvent) => {
     <!-- Full Width Project Hero -->
     <TimeScaleEmbed v-if="isProject && frontmatter.heroComponent === 'TimeScaleEmbed'" />
     <AlgorithmicDrawingEmbed v-else-if="isProject && frontmatter.heroComponent === 'AlgorithmicDrawingEmbed'" />
+    <LumaHeroEmbed
+      v-else-if="isProject && frontmatter.heroComponent === 'LumaHeroEmbed' && frontmatter.heroEmbedUrl"
+      :src="frontmatter.heroEmbedUrl"
+      :title="frontmatter.heroEmbedTitle || frontmatter.title || 'Luma embed'"
+    />
     <div
       v-else-if="isProject && frontmatter.heroImage"
       class="project-hero-fullscreen"
