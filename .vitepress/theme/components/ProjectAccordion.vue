@@ -6,7 +6,7 @@ const props = defineProps<{
   defaultOpen?: boolean
   /** When true the accordion is always open and no trigger/title is shown */
   alwaysOpen?: boolean
-  /** When true, images inside the accordion are centered at half-width */
+  /** When true, large images are constrained to a smaller centered max width */
   centerImages?: boolean
 }>()
 
@@ -126,16 +126,22 @@ onUpdated(() => {
   transform: rotate(0deg); /* Point up/open? User said it's pointing down by default. */
 }
 
-.accordion-content.center-images :deep(img) {
+/* Default behavior: keep native size when small, scale down when needed, and center. */
+.accordion-content :deep(img) {
   display: block;
-  margin: 0 auto;
-  width: 72svh;
-  max-width: 72svh;
+  margin: 2rem auto;
+  width: auto;
+  max-width: 100%;
+}
+
+/* Optional behavior: constrain larger images to a smaller centered max width. */
+.accordion-content.center-images :deep(img) {
+  width: auto;
+  max-width: min(72svh, 100%);
 }
 
 @media (max-width: 720px) {
   .accordion-content.center-images :deep(img) {
-    width: 100%;
     max-width: 100%;
   }
 }
@@ -145,20 +151,18 @@ onUpdated(() => {
    the center-images sizing when applicable. */
 .accordion-content :deep(img).tall-image {
   display: block;
-  margin: 0 auto;
-  width: 48svh;
-  max-width: 48svh;
+  margin: 2rem auto;
+  width: auto;
+  max-width: min(48svh, 100%);
 }
 
 .accordion-content.center-images :deep(img).tall-image {
-  /* slightly smaller when centerImages is active */
-  width: 48svh;
-  max-width: 48svh;
+  /* keep a tighter max width for portrait images in constrained mode */
+  max-width: min(48svh, 100%);
 }
 
 @media (max-width: 720px) {
   .accordion-content :deep(img).tall-image {
-    width: 100%;
     max-width: 100%;
   }
 }

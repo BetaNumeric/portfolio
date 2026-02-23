@@ -21,7 +21,7 @@ As digital media students, we have been asked to make some contributions to the 
 
 </ProjectIntro>
 
-<ProjectAccordion :alwaysOpen="true" :centerImages="true">
+<ProjectAccordion :alwaysOpen="true">
 
 Though seeming lifeless and still, buildings are more like a living organism than mere dead matter. They breathe through their ventilation systems, produce their own body heat, various fluids flow through their "veins", and signals through their "nerve cords". So far we have been the "messenger substances" that carry information through their bodies and controll their organs. But what if we give the building senses and its own intelligence?
 
@@ -66,7 +66,7 @@ Perhaps it would also be possible with the help of machine learning to use the d
 
 
 
-<ProjectAccordion title="Development" :centerImages="true">
+<ProjectAccordion title="Development">
 
 To visualize these ideas, I constructed a 3D model of the interior according to the original blueprint provided by [GMD Architekten](https://www.gmd-architekten.com/) with Fusion 360 and used Blender and After Effects to animate the lighting.
 
