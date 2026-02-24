@@ -14,8 +14,6 @@ const route = useRoute()
 const navItems = computed(() => site.value.themeConfig?.nav ?? [])
 const socialLinks = computed(() => site.value.themeConfig?.socialLinks ?? [])
 const siteTitle = computed(() => site.value.title ?? 'Portfolio')
-const footerTitle = computed(() => site.value.themeConfig?.footerTitle)
-const footerLinks = computed(() => site.value.themeConfig?.footerLinks ?? [])
 
 const normalizePath = (path: string) => {
   const base = site.value.base ?? '/'
@@ -76,10 +74,6 @@ const otherProjects = computed(() => {
 
   const shuffled = [...candidates].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, 3)
-})
-
-const currentProjectData = computed(() => {
-  return projectsData.find(project => normalizePath(project.link) === currentPath.value)
 })
 
 const galleryMedia = computed<string[]>(() => {
@@ -413,13 +407,6 @@ onMounted(() => {
   updateTheme()
 })
 
-const projectCardRefs = ref<HTMLElement[]>([])
-const setProjectCardRef = (el: any) => {
-  if (el && el instanceof HTMLElement && !projectCardRefs.value.includes(el)) {
-    projectCardRefs.value.push(el)
-  }
-}
-
 // Mobile nav toggle
 const mobileNavOpen = ref(false)
 const toggleMobileNav = () => {
@@ -431,7 +418,6 @@ let observer: IntersectionObserver | null = null
 const collectProjectCards = () => {
   if (typeof document === 'undefined') return []
   const cards = Array.from(document.querySelectorAll('#projects .project-card')) as HTMLElement[]
-  projectCardRefs.value = cards
   return cards
 }
 
@@ -612,7 +598,6 @@ const handleLeave = (event: MouseEvent) => {
             :class="['project-card', { 'project-card--stacked': isHomeTwoColumnCards }]"
             @mouseenter="handleEnter"
             @mouseleave="handleLeave"
-            :ref="setProjectCardRef"
           >
             <div class="project-card__media">
               <template v-if="project.images && project.images.length">
