@@ -5,7 +5,7 @@ year: 2022
 description: "A visualization of the past, the future and the now to give a sense of scale."
 heroImage: /projects/time-scale/galactic_year.jpg
 heroComponent: TimeScaleEmbed
-previewMedia: /projects/time-scale/zoom.gif
+previewMedia: /projects/time-scale/zoom.mp4
 gallery:
   - /projects/time-scale/gallery/500ms.jpg
   - /projects/time-scale/gallery/geologic_time_scale.jpg
@@ -13,7 +13,7 @@ gallery:
   - /projects/time-scale/gallery/presentation_1.jpg
 ---
 
-<ProjectIntro image="/projects/time-scale/ten_seconds.gif" externalLink="https://betanumeric.github.io/time/">
+<ProjectIntro image="/projects/time-scale/ten_seconds.mp4" externalLink="https://betanumeric.github.io/time/">
 
 **DESCRIPTION**
 

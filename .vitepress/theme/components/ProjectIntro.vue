@@ -6,6 +6,7 @@ import { withBase } from 'vitepress'
 const props = defineProps<{
   video?: string
   image?: string
+  stillImage?: string
   alt?: string
   fullVideo?: string
   externalLink?: string
@@ -15,6 +16,29 @@ const lottieContainer = ref<HTMLDivElement | null>(null)
 const mediaContainer = ref<HTMLDivElement | null>(null)
 const showLottie = ref(false)
 const isLightboxOpen = ref(false)
+const videoExtensionPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
+
+const isVideoFile = (source?: string) => {
+  if (!source) return false
+  return videoExtensionPattern.test(source)
+}
+
+const mediaVideo = computed(() => {
+  if (props.video) return props.video
+  if (isVideoFile(props.image)) return props.image
+  return undefined
+})
+
+const mediaImage = computed(() => {
+  if (props.image && !isVideoFile(props.image)) return props.image
+  if (props.stillImage && !isVideoFile(props.stillImage)) return props.stillImage
+  return undefined
+})
+
+const mediaPoster = computed(() => {
+  if (props.stillImage && !isVideoFile(props.stillImage)) return props.stillImage
+  return undefined
+})
 
 const embedUrl = computed(() => {
   if (!props.fullVideo) return ''
@@ -85,8 +109,17 @@ const handleMouseLeave = () => {
       @mouseleave="handleMouseLeave"
       @click="openLightbox"
     >
-      <video v-if="video" :src="withBase(video)" autoplay loop muted playsinline></video>
-      <img v-else-if="image" :src="withBase(image)" :alt="alt || 'Project media'">
+      <video
+        v-if="mediaVideo"
+        :src="withBase(mediaVideo)"
+        :poster="mediaPoster ? withBase(mediaPoster) : undefined"
+        autoplay
+        loop
+        muted
+        playsinline
+        preload="metadata"
+      ></video>
+      <img v-else-if="mediaImage" :src="withBase(mediaImage)" :alt="alt || 'Project media'">
       <div v-if="fullVideo || externalLink" ref="lottieContainer" class="lottie-overlay" :class="{ 'is-visible': showLottie }"></div>
     </div>
     

@@ -14,7 +14,7 @@ gallery:
   - /projects/seeing-water/gallery/seeing_water_5.jpg
 ---
 
-<ProjectIntro video="/projects/seeing-water/seeing_water.mp4" stillImage="/projects/seeing-water/seeing_water_still.jpg" fullVideo="https://youtu.be/1zrsLcYZ11E">
+<ProjectIntro video="/projects/seeing-water/seeing_water.mp4" fullVideo="https://youtu.be/1zrsLcYZ11E">
 
 **DESCRIPTION**
 

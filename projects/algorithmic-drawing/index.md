@@ -5,12 +5,15 @@ year: 2022
 description: "A digital plotter that draws images in homage to Vera Molnár"
 heroImage: /projects/algorithmic-drawing/gallery/algorithmic_drawing_0.jpg
 heroComponent: AlgorithmicDrawingEmbed
-previewMedia: /projects/algorithmic-drawing/algorithmic_drawing.gif
+previewMedia: /projects/algorithmic-drawing/algorithmic_drawing.mp4
 gallery:
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_0.jpg
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_1.jpg
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_2.jpg
   - /projects/algorithmic-drawing/gallery/algorithmic_drawing_3.jpg
+  - /projects/algorithmic-drawing/gallery/algorithmic_drawing_4.mp4
+  - /projects/algorithmic-drawing/gallery/algorithmic_drawing_5.mp4
+  - /projects/algorithmic-drawing/gallery/algorithmic_drawing_6.mp4
 ---
 
 <ProjectAccordion :alwaysOpen="true" :centerImages="true">

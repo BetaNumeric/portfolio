@@ -4,7 +4,7 @@ title: Timid Mirror
 year: 2020
 description: "This machine is a swivel mirror that can detect faces and tilt and rotate away to avoid eye-contact with them."
 heroImage: /projects/timid_mirror/timid_mirror_front_web.jpg
-previewMedia: /projects/timid_mirror/timid_mirror.gif
+previewMedia: /projects/timid_mirror/timid_mirror.mp4
 
 gallery:
   - /projects/timid_mirror/timid_mirror_back_web.jpg
@@ -62,7 +62,7 @@ For the motor’s axis to stick through I drilled a hole in the wooden mounting 
 
 And to fasten the motor I drilled another hole next to it and countersunk the screw so it doesn’t obstruct the motion.
 
-![dc motor rotation test](/projects/timid_mirror/rotation_test_loop.gif)
+![dc motor rotation test](/projects/timid_mirror/rotation_test_loop.mp4)
 
 On the side, I drilled a hole and sanded it square for the servo motor to fit through.
 
@@ -76,7 +76,7 @@ The other lever is tightly stuck on the axis of the servo motor.
 
 To connect the two levers I used a piece of a cable tie with two holes and shortened screws with nuts.
 
-![servo tilt test](/projects/timid_mirror/tilt_test_loop.gif)
+![servo tilt test](/projects/timid_mirror/tilt_test_loop.mp4)
 
 At first I put the ESP32 Cam on the cardboard, with the connection cable stiffened by a piece of cardboard, in a way that the lens looked over the edge of the mirror.
 
@@ -106,6 +106,6 @@ I ended up using the built-in 5V power supply of the L298N H-bridge to power the
 
 This way it now works reliably.
 
-![spinning timid mirror](/projects/timid_mirror/timid_mirror_web.gif)
+![spinning timid mirror](/projects/timid_mirror/timid_mirror.mp4)
 
 </ProjectAccordion>

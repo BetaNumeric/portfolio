@@ -82,9 +82,10 @@ const currentProjectData = computed(() => {
   return projectsData.find(project => normalizePath(project.link) === currentPath.value)
 })
 
-const galleryImages = computed(() => {
-  // Use frontmatter gallery
-  return frontmatter.value.gallery ?? []
+const galleryMedia = computed<string[]>(() => {
+  const media = frontmatter.value.gallery
+  if (!Array.isArray(media)) return []
+  return media.filter((item): item is string => typeof item === 'string' && item.length > 0)
 })
 
 // Lightbox Logic
@@ -163,15 +164,15 @@ const closeLightbox = () => {
 }
 
 const nextImage = () => {
-  if (lightboxIndex.value === null) return
+  if (lightboxIndex.value === null || !galleryMedia.value.length) return
   transitionDirection.value = 'next'
-  lightboxIndex.value = (lightboxIndex.value + 1) % galleryImages.value.length
+  lightboxIndex.value = (lightboxIndex.value + 1) % galleryMedia.value.length
 }
 
 const prevImage = () => {
-  if (lightboxIndex.value === null) return
+  if (lightboxIndex.value === null || !galleryMedia.value.length) return
   transitionDirection.value = 'prev'
-  lightboxIndex.value = (lightboxIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length
+  lightboxIndex.value = (lightboxIndex.value - 1 + galleryMedia.value.length) % galleryMedia.value.length
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -180,10 +181,17 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'ArrowLeft') prevImage()
 }
 
+const videoPreviewPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
+
 const isVideoPreview = (preview?: string) => {
   if (!preview) return false
-  return preview.endsWith('.mp4') || preview.endsWith('.webm') || preview.endsWith('.mov')
+  return videoPreviewPattern.test(preview)
 }
+
+const currentLightboxMedia = computed(() => {
+  if (lightboxIndex.value === null) return undefined
+  return galleryMedia.value[lightboxIndex.value]
+})
 
 const isActive = (link: string) => {
   if (link === '/') return route.path === '/'
@@ -501,18 +509,30 @@ const handleLeave = (event: MouseEvent) => {
                  <Content />
              </div>
 
-             <div class="project-gallery" v-if="galleryImages.length">
+             <div class="project-gallery" v-if="galleryMedia.length">
                <h3>Gallery</h3>
                <div class="gallery-grid">
-                 <img
-                   v-for="(image, index) in galleryImages.slice(0, 4)"
-                   :key="image"
-                   :src="withBase(image)"
-                   :alt="`${frontmatter.title} gallery image ${(index as number) + 1}`"
-                   loading="lazy"
-                   @click="openLightbox(index as number)"
-                   class="gallery-image"
-                 />
+                 <template v-for="(media, index) in galleryMedia.slice(0, 4)" :key="`${media}-${index}`">
+                   <video
+                     v-if="isVideoPreview(media)"
+                     :src="withBase(media)"
+                     class="gallery-image"
+                     autoplay
+                     loop
+                     muted
+                     playsinline
+                     preload="metadata"
+                     @click="openLightbox(index as number)"
+                   ></video>
+                   <img
+                     v-else
+                     :src="withBase(media)"
+                     :alt="`${frontmatter.title} gallery image ${(index as number) + 1}`"
+                     loading="lazy"
+                     @click="openLightbox(index as number)"
+                     class="gallery-image"
+                   />
+                 </template>
                </div>
              </div>
 
@@ -526,7 +546,7 @@ const handleLeave = (event: MouseEvent) => {
                      <img :src="withBase('/assets/icons/chevron_w.svg')" alt="" />
                    </button>
                    
-                   <div 
+                    <div 
                      class="lightbox-image-container" 
                      @click.self="handleBackdropClick"
                      @mousedown="startDrag"
@@ -536,18 +556,31 @@ const handleLeave = (event: MouseEvent) => {
                      @touchstart="startDrag"
                      @touchmove="onDrag"
                      @touchend="endDragWithIgnore"
-                   >
-                     <Transition :name="isDragging ? '' : `slide-${transitionDirection}`">
-                       <img 
-                         :key="lightboxIndex ?? 0"
-                         :src="withBase(galleryImages[lightboxIndex || 0])" 
-                         class="lightbox-current-image"
-                         :style="{ transform: isDragging ? `translateX(${dragOffset}px)` : '' }"
-                         draggable="false"
-                         alt=""
-                       />
-                     </Transition>
-                   </div>
+                    >
+                      <Transition :name="isDragging ? '' : `slide-${transitionDirection}`">
+                        <video
+                          v-if="currentLightboxMedia && isVideoPreview(currentLightboxMedia)"
+                          :key="currentLightboxMedia"
+                          :src="withBase(currentLightboxMedia)"
+                          class="lightbox-current-media"
+                          :style="{ transform: isDragging ? `translateX(${dragOffset}px)` : '' }"
+                          autoplay
+                          loop
+                          muted
+                          playsinline
+                          preload="metadata"
+                        ></video>
+                        <img
+                          v-else-if="currentLightboxMedia"
+                          :key="currentLightboxMedia"
+                          :src="withBase(currentLightboxMedia)"
+                          class="lightbox-current-media"
+                          :style="{ transform: isDragging ? `translateX(${dragOffset}px)` : '' }"
+                          draggable="false"
+                          alt=""
+                        />
+                      </Transition>
+                    </div>
                    
                    <button class="lightbox-nav next" @click.stop="nextImage" aria-label="Next image">
                      <img :src="withBase('/assets/icons/chevron_w.svg')" alt="" />
@@ -555,17 +588,27 @@ const handleLeave = (event: MouseEvent) => {
                  </div>
                  
                  <div class="lightbox-thumbnails">
-                   <div 
-                     v-for="(image, index) in galleryImages" 
-                     :key="image"
-                     class="lightbox-thumb"
-                     :class="{ active: index === lightboxIndex }"
-                     @click.stop="() => { transitionDirection = 'jump'; lightboxIndex = index as number; }"
-                   >
-                     <img :src="withBase(image)" alt="" />
-                   </div>
-                 </div>
-               </div>
+                    <div
+                      v-for="(media, index) in galleryMedia"
+                      :key="`${media}-${index}`"
+                      class="lightbox-thumb"
+                      :class="{ active: index === lightboxIndex }"
+                      @click.stop="() => { transitionDirection = 'jump'; lightboxIndex = index as number; }"
+                    >
+                      <video
+                        v-if="isVideoPreview(media)"
+                        :src="withBase(media)"
+                        autoplay
+                        loop
+                        muted
+                        playsinline
+                        preload="metadata"
+                        aria-hidden="true"
+                      ></video>
+                      <img v-else :src="withBase(media)" alt="" />
+                    </div>
+                  </div>
+                </div>
              </Teleport>
 
              <div class="other-projects" v-if="otherProjects.length">

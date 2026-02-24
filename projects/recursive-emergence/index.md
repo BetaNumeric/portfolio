@@ -4,19 +4,20 @@ title: Recursive Emergence
 year: 2023
 description: "An exploration of fractal structures emerging from visual feedback loops between a camera and projectors."
 heroImage: /projects/recursive-emergence/header.jpg
-previewMedia: /projects/recursive-emergence/recursive_emergence.gif
+previewMedia: /projects/recursive-emergence/gallery/recursive_emergence_8.mp4
 gallery:
-  - /projects/recursive-emergence/gallery/recursive_emergence_0.gif
+  - /projects/recursive-emergence/gallery/recursive_emergence_0.mp4
   - /projects/recursive-emergence/gallery/recursive_emergence_1.jpg
   - /projects/recursive-emergence/gallery/recursive_emergence_2.jpg
-  - /projects/recursive-emergence/gallery/recursive_emergence_3.gif
+  - /projects/recursive-emergence/gallery/recursive_emergence_3.mp4
   - /projects/recursive-emergence/gallery/recursive_emergence_4.jpg
   - /projects/recursive-emergence/gallery/recursive_emergence_5.jpg
   - /projects/recursive-emergence/gallery/recursive_emergence_6.jpg
   - /projects/recursive-emergence/gallery/recursive_emergence_7.jpg
+  - /projects/recursive-emergence/gallery/recursive_emergence_8.mp4
 ---
 
-<ProjectIntro image="/projects/recursive-emergence/recursive_emergence.gif" fullVideo="https://youtu.be/8d3Z2BFARBk">
+<ProjectIntro image="/projects/recursive-emergence/recursive_emergence.mp4" fullVideo="https://youtu.be/8d3Z2BFARBk">
 
 **DESCRIPTION**
 
@@ -259,7 +260,7 @@ For the exhibition, I reassembled the parts and transported them into the middle
 
 ### Improvements
 
-![Square projected into the loop](/projects/recursive-emergence/recursive_emergence_example_3.gif)
+![Square projected into the loop](/projects/recursive-emergence/recursive_emergence_example_3.mp4)
 
 One thing I wanted to experiment with was introducing an external image into the existing loop. To do this I used a fourth projector that I could connect to a computer and project an image into the loop. I projected simple shapes and lines, text, and photos. The image was quickly picked up by the camera and propagated down the loop. The dominant color persisted and was able to change the color of the loop even after the image disappeared. I've also written a program that uses the output of the main camera or the output of a second camera pointed at the same wall to determine the average brightness. With that value, it can project an image as a “light seed” into the loop to start it again if the previous loop has faded away. This can happen when the ambient light is too low for the camera to pick it up and the projectors move into a constellation where the fractals fade. With that program running I can even underexpose the camera's view and make the fractals fade again as soon as the external projector stops supplying the “light seed”.
 
@@ -267,7 +268,7 @@ One thing I wanted to experiment with was introducing an external image into the
 ‍
 I also wrote a version of the program that uses the camera signal not only as a brightness sensor but to periodically take stills and save them in a folder. Now, whenever the loop needs a light seed, the program uses its memory and “dreams” of what was before. I also changed the "dream images" in terms of brightness, hue, and orientation.
 
-![Color shift in loop](/projects/recursive-emergence/recursive_emergence_example_2.gif)
+![Color shift in loop](/projects/recursive-emergence/recursive_emergence_example_2.mp4)
 
 I also used the extra projector to project an altered fourth duplication of the camera’s view onto the loop. Unaltered this would only add slightly more complexity, because most of the time the bright areas would overlap and form a solid area, but by slightly shifting the hue, it made the complexity visible, and vividly colorful fractals appeared. Each new iteration through the camera and projectors caused the color of copies of the color to shift further until all colors of the spectrum appeared.
 

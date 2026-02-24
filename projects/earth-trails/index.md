@@ -4,7 +4,7 @@ title: Earth Trails
 year: 2020
 description: "A project to show Earth's movement as a planet through space from everyday perspectives."
 heroImage: /projects/earth-trails/header.jpg
-previewMedia: /projects/earth-trails/earth_trails_machine.gif
+previewMedia: /projects/earth-trails/earth_trails_machine.mp4
 gallery:
   - /projects/earth-trails/gallery/earth_trails_0.jpg
   - /projects/earth-trails/gallery/earth_trails_1.jpg
@@ -13,7 +13,7 @@ gallery:
   - /projects/earth-trails/gallery/earth_trails_4.jpg
 ---
 
-<ProjectIntro image="/projects/earth-trails/earth_trails.gif" fullVideo="https://vimeo.com/491661972">
+<ProjectIntro image="/projects/earth-trails/earth_trails.mp4" fullVideo="https://vimeo.com/491661972">
 
 **DESCRIPTION**
 

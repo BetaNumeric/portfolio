@@ -4,7 +4,7 @@ title: The DIGIHUB's Nervous System
 year: 2021
 description: "An investigation of opportunities that could arise from installing sensors in the lighting system of buildings."
 heroImage: /projects/digihub/digihub_close.jpg
-previewMedia: /projects/digihub/dreaming_building.gif
+previewMedia: /projects/digihub/dreaming_building.mp4
 
 gallery:
   - /projects/digihub/dreaming_building_2.jpg
@@ -13,7 +13,7 @@ gallery:
   - /projects/digihub/digihub_first_floor.jpg
 ---
 
-<ProjectIntro image="/projects/digihub/digihub_model.gif" fullVideo="https://youtu.be/WccKi07Vsys">
+<ProjectIntro image="/projects/digihub/digihub_model.mp4" fullVideo="https://youtu.be/WccKi07Vsys">
 
 **DESCRIPTION**
 

@@ -960,7 +960,7 @@ body::-webkit-scrollbar-thumb:active {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
 }
-.gallery-grid img {
+.gallery-grid .gallery-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -968,6 +968,7 @@ body::-webkit-scrollbar-thumb:active {
     border-radius: 6px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     cursor: pointer;
+    display: block;
 }
 
 /* Responsive Embeds (Vimeo, Sketchfab, etc.) */
@@ -1003,7 +1004,7 @@ body::-webkit-scrollbar-thumb:active {
     margin: 2rem auto;
     border-radius: 8px;
 }
-.gallery-grid img:hover {
+.gallery-grid .gallery-image:hover {
     transform: scale(1.02);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
 }
@@ -1050,7 +1051,7 @@ body::-webkit-scrollbar-thumb:active {
   cursor: grabbing;
 }
 
-.lightbox-current-image {
+.lightbox-current-media {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -1140,10 +1141,12 @@ body::-webkit-scrollbar-thumb:active {
   transform: scale(1.05);
 }
 
-.lightbox-thumb img {
+.lightbox-thumb img,
+.lightbox-thumb video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 /* Slide Next Transitions (Right to Left) */
@@ -1444,6 +1447,17 @@ body::-webkit-scrollbar-thumb:active {
     max-width: 100%;
     border-radius: 4px;
     display: block;
+}
+
+.inner-content video.md-inline-video,
+.development-content video.md-inline-video,
+.accordion-content video.md-inline-video {
+    margin: 2rem auto;
+    max-width: 100%;
+    border-radius: 4px;
+    display: block;
+    width: auto;
+    height: auto;
 }
 /* Update Description Block Typography */
 .project-intro-text strong {

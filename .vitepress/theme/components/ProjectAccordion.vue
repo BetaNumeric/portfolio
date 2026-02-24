@@ -134,14 +134,27 @@ onUpdated(() => {
   max-width: 100%;
 }
 
+.accordion-content :deep(video.md-inline-video) {
+  display: block;
+  margin: 2rem auto;
+  width: auto;
+  max-width: 100%;
+}
+
 /* Optional behavior: constrain larger images to a smaller centered max width. */
 .accordion-content.center-images :deep(img) {
   width: auto;
   max-width: min(72svh, 100%);
 }
 
+.accordion-content.center-images :deep(video.md-inline-video) {
+  width: auto;
+  max-width: min(72svh, 100%);
+}
+
 @media (max-width: 720px) {
-  .accordion-content.center-images :deep(img) {
+  .accordion-content.center-images :deep(img),
+  .accordion-content.center-images :deep(video.md-inline-video) {
     max-width: 100%;
   }
 }
