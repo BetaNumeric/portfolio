@@ -204,6 +204,7 @@ let scrollDirection: 'up' | 'down' = 'up'
 
 const handleScroll = () => {
   const currentScrollY = window.scrollY
+  updateOverlayScrollbar()
   const header = document.querySelector('.site-header') as HTMLElement | null
   
   if (!header) return
@@ -229,6 +230,156 @@ const handleScroll = () => {
 
 const handleMouseEnter = () => {
   isNavbarHidden.value = false
+}
+
+const SCROLLBAR_REVEAL_EDGE_PX = 36
+const SCROLLBAR_REVEAL_HIDE_DELAY_MS = 420
+const MIN_OVERLAY_THUMB_PX = 40
+let scrollbarHideTimer: ReturnType<typeof setTimeout> | null = null
+let dragStartClientY = 0
+let dragStartScrollTop = 0
+
+const overlayScrollbarVisible = ref(false)
+const overlayScrollbarHasOverflow = ref(false)
+const overlayScrollbarDragging = ref(false)
+const overlayScrollbarThumbHeight = ref(0)
+const overlayScrollbarThumbTop = ref(0)
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max)
+}
+
+const getScrollMetrics = () => {
+  const doc = document.documentElement
+  const viewportHeight = window.innerHeight
+  const scrollTop = window.scrollY || doc.scrollTop || 0
+  const scrollHeight = doc.scrollHeight
+  const maxScrollTop = Math.max(scrollHeight - viewportHeight, 0)
+  return { viewportHeight, scrollTop, scrollHeight, maxScrollTop }
+}
+
+const updateOverlayScrollbar = () => {
+  if (typeof document === 'undefined') return
+  const { viewportHeight, scrollTop, scrollHeight, maxScrollTop } = getScrollMetrics()
+  const hasOverflow = maxScrollTop > 0
+  overlayScrollbarHasOverflow.value = hasOverflow
+
+  if (!hasOverflow) {
+    overlayScrollbarThumbHeight.value = 0
+    overlayScrollbarThumbTop.value = 0
+    overlayScrollbarVisible.value = false
+    return
+  }
+
+  const thumbHeight = clamp((viewportHeight / scrollHeight) * viewportHeight, MIN_OVERLAY_THUMB_PX, viewportHeight)
+  const maxThumbTop = Math.max(viewportHeight - thumbHeight, 0)
+  const progress = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0
+
+  overlayScrollbarThumbHeight.value = thumbHeight
+  overlayScrollbarThumbTop.value = maxThumbTop * progress
+}
+
+const showOverlayScrollbar = () => {
+  updateOverlayScrollbar()
+  if (!overlayScrollbarHasOverflow.value) return
+  overlayScrollbarVisible.value = true
+}
+
+const clearScrollbarHideTimer = () => {
+  if (!scrollbarHideTimer) return
+  clearTimeout(scrollbarHideTimer)
+  scrollbarHideTimer = null
+}
+
+const scheduleScrollbarHide = () => {
+  if (overlayScrollbarDragging.value) return
+  clearScrollbarHideTimer()
+  scrollbarHideTimer = setTimeout(() => {
+    overlayScrollbarVisible.value = false
+    scrollbarHideTimer = null
+  }, SCROLLBAR_REVEAL_HIDE_DELAY_MS)
+}
+
+const handleOverlayScrollbarDragMove = (event: MouseEvent) => {
+  if (!overlayScrollbarDragging.value || !overlayScrollbarHasOverflow.value) return
+  const { viewportHeight, maxScrollTop } = getScrollMetrics()
+  if (maxScrollTop <= 0) return
+  const trackTravel = Math.max(viewportHeight - overlayScrollbarThumbHeight.value, 1)
+  const deltaY = event.clientY - dragStartClientY
+  const nextScrollTop = clamp(dragStartScrollTop + (deltaY / trackTravel) * maxScrollTop, 0, maxScrollTop)
+  window.scrollTo({ top: nextScrollTop, behavior: 'auto' })
+}
+
+const stopOverlayScrollbarDrag = () => {
+  if (!overlayScrollbarDragging.value) return
+  overlayScrollbarDragging.value = false
+  window.removeEventListener('mousemove', handleOverlayScrollbarDragMove)
+  window.removeEventListener('mouseup', stopOverlayScrollbarDrag)
+  scheduleScrollbarHide()
+}
+
+const startOverlayScrollbarDrag = (event: MouseEvent) => {
+  if (!overlayScrollbarHasOverflow.value) return
+  event.preventDefault()
+  clearScrollbarHideTimer()
+  showOverlayScrollbar()
+  overlayScrollbarDragging.value = true
+  dragStartClientY = event.clientY
+  dragStartScrollTop = getScrollMetrics().scrollTop
+  window.addEventListener('mousemove', handleOverlayScrollbarDragMove)
+  window.addEventListener('mouseup', stopOverlayScrollbarDrag)
+}
+
+const handleOverlayScrollbarTrackMouseDown = (event: MouseEvent) => {
+  if (!overlayScrollbarHasOverflow.value) return
+  const track = event.currentTarget as HTMLElement | null
+  if (!track) return
+  const rect = track.getBoundingClientRect()
+  const clickY = event.clientY - rect.top
+  const maxThumbTop = Math.max(rect.height - overlayScrollbarThumbHeight.value, 0)
+  const thumbTop = clamp(clickY - overlayScrollbarThumbHeight.value / 2, 0, maxThumbTop)
+  const { maxScrollTop } = getScrollMetrics()
+  const progress = maxThumbTop > 0 ? thumbTop / maxThumbTop : 0
+  window.scrollTo({ top: progress * maxScrollTop, behavior: 'auto' })
+  startOverlayScrollbarDrag(event)
+}
+
+const handleScrollbarRevealMove = (event: MouseEvent) => {
+  if (!overlayScrollbarHasOverflow.value && !overlayScrollbarDragging.value) {
+    updateOverlayScrollbar()
+  }
+  if (!overlayScrollbarHasOverflow.value) return
+  const distanceFromRight = window.innerWidth - event.clientX
+  if (distanceFromRight <= SCROLLBAR_REVEAL_EDGE_PX) {
+    clearScrollbarHideTimer()
+    showOverlayScrollbar()
+    return
+  }
+  if (overlayScrollbarVisible.value) {
+    scheduleScrollbarHide()
+  }
+}
+
+const handleOverlayScrollbarMouseEnter = () => {
+  clearScrollbarHideTimer()
+  showOverlayScrollbar()
+}
+
+const handleOverlayScrollbarMouseLeave = () => {
+  scheduleScrollbarHide()
+}
+
+const handleWindowMouseLeave = (event: MouseEvent) => {
+  if (event.relatedTarget) return
+  stopOverlayScrollbarDrag()
+  clearScrollbarHideTimer()
+  overlayScrollbarVisible.value = false
+}
+
+const handleWindowBlur = () => {
+  stopOverlayScrollbarDrag()
+  clearScrollbarHideTimer()
+  overlayScrollbarVisible.value = false
 }
 
 // Theme Logic
@@ -302,6 +453,12 @@ const syncProjectCardsWithViewport = () => {
 onMounted(() => {
   homeGridLayout.value = resolveHomeGridLayout()
   window.addEventListener('scroll', handleScroll)
+  window.addEventListener('mousemove', handleScrollbarRevealMove, { passive: true })
+  window.addEventListener('mouseleave', handleWindowMouseLeave)
+  window.addEventListener('blur', handleWindowBlur)
+  window.addEventListener('resize', updateOverlayScrollbar, { passive: true })
+  updateOverlayScrollbar()
+  overlayScrollbarVisible.value = false
 
   observer = new IntersectionObserver(
     (entries) => {
@@ -320,6 +477,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('mousemove', handleScrollbarRevealMove)
+  window.removeEventListener('mouseleave', handleWindowMouseLeave)
+  window.removeEventListener('blur', handleWindowBlur)
+  window.removeEventListener('resize', updateOverlayScrollbar)
+  stopOverlayScrollbarDrag()
+  clearScrollbarHideTimer()
+  overlayScrollbarVisible.value = false
   observer?.disconnect()
 })
 
@@ -338,12 +502,15 @@ const resetProjectCards = () => {
 // Watch for route changes and reset cards when navigating to home
 watch(
   () => route.path,
-  (newPath) => {
+  () => {
     if (isHome.value) {
       homeGridLayout.value = resolveHomeGridLayout()
-      // Use nextTick-like delay to ensure DOM is updated
-      setTimeout(resetProjectCards, 0)
     }
+    // Use nextTick-like delay to ensure DOM is updated
+    setTimeout(() => {
+      if (isHome.value) resetProjectCards()
+      updateOverlayScrollbar()
+    }, 0)
   }
 )
 
@@ -699,5 +866,23 @@ const handleLeave = (event: MouseEvent) => {
         </button>
       </div>
     </footer>
+
+    <div
+      v-show="overlayScrollbarHasOverflow"
+      class="overlay-scrollbar"
+      :class="{ 'is-visible': overlayScrollbarVisible, 'is-dragging': overlayScrollbarDragging }"
+      @mousedown="handleOverlayScrollbarTrackMouseDown"
+      @mouseenter="handleOverlayScrollbarMouseEnter"
+      @mouseleave="handleOverlayScrollbarMouseLeave"
+    >
+      <div
+        class="overlay-scrollbar__thumb"
+        :style="{
+          height: `${overlayScrollbarThumbHeight}px`,
+          transform: `translateY(${overlayScrollbarThumbTop}px)`,
+        }"
+        @mousedown.stop="startOverlayScrollbarDrag"
+      ></div>
+    </div>
   </div>
 </template>

@@ -26,6 +26,10 @@
   --social-text: #2a2a2a;
   
   --card-content-bg: radial-gradient(circle at 0% 50%, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.85) 100%);
+
+  --overlay-scrollbar-thumb: rgb(129, 129, 129);
+  --overlay-scrollbar-thumb-hover: rgba(142, 142, 142, 1);
+  --overlay-scrollbar-thumb-active: rgba(155, 155, 155, 1);
 }
 
 .light-mode {
@@ -52,6 +56,9 @@
   --social-text: #ffffff;
   
   --card-content-bg: transparent;
+  --overlay-scrollbar-thumb: rgb(129, 129, 129);
+  --overlay-scrollbar-thumb-hover: rgba(142, 142, 142, 1);
+  --overlay-scrollbar-thumb-active: rgba(155, 155, 155, 1);
 }
 
 * {
@@ -68,9 +75,15 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Prevent layout shift when the scrollbar appears/disappears */
 html {
-  scrollbar-gutter: stable;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 a {
@@ -78,25 +91,41 @@ a {
   text-decoration: none;
 }
 
-/* Custom Scrollbar Styling */
-body::-webkit-scrollbar {
-  width: 12px;
+.overlay-scrollbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 100vh;
+  z-index: 1800;
+  pointer-events: none;
 }
 
-body::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0);
+.overlay-scrollbar.is-visible {
+  pointer-events: auto;
 }
 
-body::-webkit-scrollbar-thumb {
-  background: rgb(129, 129, 129);
+.overlay-scrollbar__thumb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  border-radius: 0;
+  background: var(--overlay-scrollbar-thumb);
+  transition: width 0.16s ease, right 0.16s ease, background-color 0.15s ease;
 }
 
-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 142, 142, 1);
+.overlay-scrollbar.is-visible .overlay-scrollbar__thumb {
+  right: 2px;
+  width: 8px;
 }
 
-body::-webkit-scrollbar-thumb:active {
-  background: rgba(155, 155, 155, 1);
+.overlay-scrollbar:hover .overlay-scrollbar__thumb {
+  background: var(--overlay-scrollbar-thumb-hover);
+}
+
+.overlay-scrollbar.is-dragging .overlay-scrollbar__thumb {
+  background: var(--overlay-scrollbar-thumb-active);
 }
 
 .site-shell {
