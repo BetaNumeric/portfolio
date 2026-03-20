@@ -89,6 +89,9 @@ let totalFragmentCount = 0
 
 const fragmentGroup = new THREE.Group()
 const projectAxes: THREE.Vector3[] = []
+const projectTargetYaws: number[] = []
+const projectTargetPitches: number[] = []
+const worldXAxis = new THREE.Vector3(1, 0, 0)
 const worldYAxis = new THREE.Vector3(0, 1, 0)
 
 const tempQuaternion = new THREE.Quaternion()
@@ -98,6 +101,7 @@ const tempBasis = new THREE.Matrix4()
 const tempPosition = new THREE.Vector3()
 const tempScale = new THREE.Vector3()
 const tempAxisX = new THREE.Vector3()
+const tempAxisY = new THREE.Vector3()
 const tempMatrix = new THREE.Matrix4()
 const tempRenderSize = new THREE.Vector2()
 const tempGroupQuaternion = new THREE.Quaternion()
@@ -115,6 +119,7 @@ const tempSpinAxis = new THREE.Vector3()
 const tempSpinQuaternion = new THREE.Quaternion()
 const tempComposedQuaternion = new THREE.Quaternion()
 const tempSpinEuler = new THREE.Euler()
+const tempRotationEuler = new THREE.Euler()
 const tempLocalViewAxis = new THREE.Vector3()
 const projectAlignmentScores: number[] = []
 const softClosestWeights: number[] = new Array(projects.length).fill(0)
@@ -156,8 +161,8 @@ const NORMALIZED_IMAGE_ASPECT = 16 / 9
 const IMAGE_PLANE_WIDTH = IMAGE_PLANE_HEIGHT * NORMALIZED_IMAGE_ASPECT
 const DEPTH_SPREAD = 92
 const TEXTURE_BASE_WIDTH = 864
-const FRAGMENT_GRID_COLUMNS = 32
-const FRAGMENT_GRID_ROWS = 24
+const FRAGMENT_GRID_COLUMNS = 36
+const FRAGMENT_GRID_ROWS = 25
 const FRAGMENT_RENDER_BUCKETS = 6
 const FRAGMENT_GAP_MIN = 1
 const FRAGMENT_GAP_MAX = 1
@@ -167,9 +172,9 @@ const FRAGMENT_SPIN_SCALE = 1
 const ROTATION_LERP = 0.1
 const ROTATION_DRAG_FACTOR = 0.001
 const ROTATION_X_LERP = 0.12
-const ROTATION_X_MAX = THREE.MathUtils.degToRad(55)
-const ROTATION_X_DRAG_THRESHOLD_PX = 100
+const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(55)
 const IDLE_PROJECT_ADVANCE_DELAY_MS = 7000
+const DRAG_RELEASE_SNAP_DELAY_MS = 220
 const HOVER_MOVE_THRESHOLD = 0.02
 const HOVER_RADIUS_MIN = 5
 const HOVER_RADIUS_MAX = 18
@@ -309,104 +314,83 @@ const angleDelta = (from: number, to: number) => {
   return normalizeAngle(to - from)
 }
 
-const getNearestSnapTarget = (currentYaw: number) => {
-  let nearestYaw = currentYaw
-  let nearestDelta = Number.POSITIVE_INFINITY
+const getWrappedTurnTarget = (target: number, from: number) => {
+  return target + Math.round((from - target) / TAU) * TAU
+}
+
+const getLocalViewDirectionForRotation = (yaw: number, pitch: number, target = new THREE.Vector3()) => {
+  tempQuaternion.setFromEuler(tempRotationEuler.set(pitch, yaw, 0))
+  return target.set(0, 0, 1).applyQuaternion(tempQuaternion.invert())
+}
+
+const getNearestSnapTarget = (currentYaw: number, currentPitch: number) => {
+  if (!projectAxes.length) {
+    return {
+      index: 0,
+      yaw: currentYaw,
+      pitch: currentPitch,
+      yawDelta: 0,
+      pitchDelta: 0,
+      angle: Number.POSITIVE_INFINITY,
+    }
+  }
+
+  getLocalViewDirectionForRotation(currentYaw, currentPitch, tempViewDirection)
+
+  let nearestIndex = 0
+  let nearestAngle = Number.POSITIVE_INFINITY
 
   for (let index = 0; index < projectAxes.length; index += 1) {
-    const axis = projectAxes[index]
-    const axisAngle = Math.atan2(axis.x, axis.z)
-    const candidates = [-axisAngle, -(axisAngle + Math.PI)]
-
-    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-      const candidateYaw = candidates[candidateIndex]
-      const delta = angleDelta(currentYaw, candidateYaw)
-      if (Math.abs(delta) < Math.abs(nearestDelta)) {
-        nearestDelta = delta
-        nearestYaw = currentYaw + delta
-      }
+    const angle = Math.acos(clamp(projectAxes[index].dot(tempViewDirection), -1, 1))
+    if (angle < nearestAngle) {
+      nearestAngle = angle
+      nearestIndex = index
     }
   }
 
-  return { yaw: nearestYaw, delta: nearestDelta }
-}
+  const baseYaw = projectTargetYaws[nearestIndex] ?? 0
+  const pitch = getWrappedTurnTarget(projectTargetPitches[nearestIndex] ?? 0, currentPitch)
+  const yaw = getWrappedTurnTarget(baseYaw, currentYaw)
 
-const getProjectYawCandidates = (projectIndex: number) => {
-  const axis = projectAxes[projectIndex]
-  if (!axis) return [] as number[]
-
-  const axisAngle = Math.atan2(axis.x, axis.z)
-  return [-axisAngle, -(axisAngle + Math.PI)]
-}
-
-const getAdjacentProjectYaw = (angularDirection: number, fromYaw: number) => {
-  if (!projectAxes.length) return null
-
-  const fullTurn = Math.PI * 2
-  const epsilon = 0.0001
-  const referenceYaw = getNearestSnapTarget(fromYaw).yaw
-
-  let bestYaw = angularDirection > 0 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
-
-  for (let projectIndex = 0; projectIndex < projectAxes.length; projectIndex += 1) {
-    const candidates = getProjectYawCandidates(projectIndex)
-
-    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-      const nearestYaw = referenceYaw + angleDelta(referenceYaw, candidates[candidateIndex])
-      const variants = [nearestYaw - fullTurn, nearestYaw, nearestYaw + fullTurn]
-
-      for (let variantIndex = 0; variantIndex < variants.length; variantIndex += 1) {
-        const candidateYaw = variants[variantIndex]
-
-        if (angularDirection > 0) {
-          if (candidateYaw > referenceYaw + epsilon && candidateYaw < bestYaw) {
-            bestYaw = candidateYaw
-          }
-        } else if (angularDirection < 0) {
-          if (candidateYaw < referenceYaw - epsilon && candidateYaw > bestYaw) {
-            bestYaw = candidateYaw
-          }
-        }
-      }
-    }
+  return {
+    index: nearestIndex,
+    yaw,
+    pitch,
+    yawDelta: yaw - currentYaw,
+    pitchDelta: pitch - currentPitch,
+    angle: nearestAngle,
   }
-
-  return Number.isFinite(bestYaw) ? bestYaw : null
 }
 
-const goToProjectIndex = (projectIndex: number) => {
+const goToProjectIndex = (projectIndex: number, direction = 0) => {
   if (!projectAxes.length) return
 
   const normalizedIndex = ((projectIndex % projectAxes.length) + projectAxes.length) % projectAxes.length
-  const candidates = getProjectYawCandidates(normalizedIndex)
-  if (!candidates.length) return
+  let targetYaw = projectTargetYaws[normalizedIndex] ?? 0
+  const targetPitch = getWrappedTurnTarget(projectTargetPitches[normalizedIndex] ?? 0, targetRotationX.value)
+  const epsilon = 0.0001
 
-  let nearestYaw = candidates[0]
-  let nearestDelta = angleDelta(targetRotation.y, candidates[0])
-
-  for (let index = 1; index < candidates.length; index += 1) {
-    const delta = angleDelta(targetRotation.y, candidates[index])
-    if (Math.abs(delta) < Math.abs(nearestDelta)) {
-      nearestDelta = delta
-      nearestYaw = targetRotation.y + delta
+  if (direction > 0) {
+    while (targetYaw >= targetRotation.y - epsilon) {
+      targetYaw -= TAU
     }
+  } else if (direction < 0) {
+    while (targetYaw <= targetRotation.y + epsilon) {
+      targetYaw += TAU
+    }
+  } else {
+    targetYaw += Math.round((targetRotation.y - targetYaw) / TAU) * TAU
   }
 
-  targetRotation.y = nearestYaw
-  targetRotationX.value = 0
+  targetRotation.y = targetYaw
+  targetRotationX.value = targetPitch
   pointerState.lastMoveAt = performance.now()
 }
 
 const rotateToRelativeProject = (direction: number) => {
   if (!projectAxes.length) return
-
-  const angularDirection = direction > 0 ? -1 : 1
-  const nextYaw = getAdjacentProjectYaw(angularDirection, targetRotation.y)
-  if (nextYaw === null) return
-
-  targetRotation.y = nextYaw
-  targetRotationX.value = 0
-  pointerState.lastMoveAt = performance.now()
+  const nextIndex = activeProjectIndex.value + direction
+  goToProjectIndex(nextIndex, direction)
 }
 
 const goToPreviousProject = () => {
@@ -447,14 +431,20 @@ const loadImage = (url: string) => {
 
 const setupProjectAxes = () => {
   projectAxes.length = 0
+  projectTargetYaws.length = 0
+  projectTargetPitches.length = 0
   projectAlignmentScores.length = projects.length
 
   if (!projects.length) return
 
-  const axisStep = Math.PI / projects.length
+  const axisStep = TAU / projects.length
   for (let index = 0; index < projects.length; index += 1) {
     const angle = axisStep * index
-    projectAxes[index] = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)).normalize()
+    const yaw = -angle
+    const pitch = Math.sin(angle) * SPHERE_LAYOUT_PITCH_AMPLITUDE
+    projectTargetYaws[index] = yaw
+    projectTargetPitches[index] = pitch
+    projectAxes[index] = getLocalViewDirectionForRotation(yaw, pitch, new THREE.Vector3()).clone()
     projectAlignmentScores[index] = 0
   }
 }
@@ -660,7 +650,13 @@ const buildFragmentResource = async (projectIndex: number) => {
   const occupied = new Array(FRAGMENT_GRID_COLUMNS * FRAGMENT_GRID_ROWS).fill(false)
   const geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
   const axis = projectAxes[projectIndex]
-  const planeAxis = tempAxisX.set(axis.z, 0, -axis.x).normalize().clone()
+  const upReference = Math.abs(axis.dot(worldYAxis)) > 0.94 ? worldXAxis : worldYAxis
+  const planeUp = tempAxisY
+    .copy(upReference)
+    .addScaledVector(axis, -upReference.dot(axis))
+    .normalize()
+    .clone()
+  const planeAxis = tempAxisX.crossVectors(planeUp, axis).normalize().clone()
   const cellWidth = IMAGE_PLANE_WIDTH / FRAGMENT_GRID_COLUMNS
   const cellHeight = IMAGE_PLANE_HEIGHT / FRAGMENT_GRID_ROWS
   const insetU = 0
@@ -674,7 +670,7 @@ const buildFragmentResource = async (projectIndex: number) => {
   const spinAmounts: number[] = []
   const cornerCuts: number[] = []
 
-  tempBasis.makeBasis(planeAxis, worldYAxis, axis)
+  tempBasis.makeBasis(planeAxis, planeUp, axis)
   tempQuaternion.setFromRotationMatrix(tempBasis)
 
   for (let y = 0; y < FRAGMENT_GRID_ROWS; y += 1) {
@@ -692,7 +688,7 @@ const buildFragmentResource = async (projectIndex: number) => {
       const depthOffset = randomBetween(random, -DEPTH_SPREAD, DEPTH_SPREAD)
 
       tempPosition.copy(planeAxis).multiplyScalar(centerX)
-      tempPosition.y = centerY
+      tempPosition.addScaledVector(planeUp, centerY)
       tempPosition.addScaledVector(axis, depthOffset)
       tempScale.set(fragmentWidth, fragmentHeight, 1)
       tempMatrix.compose(tempPosition, tempQuaternion, tempScale)
@@ -1362,7 +1358,7 @@ const initCompositeResources = () => {
 const updateActiveProject = () => {
   if (!projectAxes.length || !camera) return 0
 
-  tempQuaternion.setFromAxisAngle(worldYAxis, rotation.y).invert()
+  tempQuaternion.copy(fragmentGroup.quaternion).invert()
   camera.getWorldDirection(tempCameraDirection)
   tempViewDirection.copy(tempCameraDirection).multiplyScalar(-1).applyQuaternion(tempQuaternion).normalize()
 
@@ -1370,7 +1366,7 @@ const updateActiveProject = () => {
   let bestScore = -1
 
   for (let index = 0; index < projectAxes.length; index += 1) {
-    const score = Math.abs(projectAxes[index].dot(tempViewDirection))
+    const score = projectAxes[index].dot(tempViewDirection)
     projectAlignmentScores[index] = score
     if (score > bestScore) {
       bestScore = score
@@ -1448,12 +1444,14 @@ const tick = (time: number) => {
     targetRotation.y += delta * AUTO_ROTATE_SPEED
   }
 
-  if (!pointerState.isDown && projectAxes.length) {
-    const snap = getNearestSnapTarget(targetRotation.y)
-    if (Math.abs(snap.delta) < SNAP_ANGLE_THRESHOLD) {
-      targetRotation.y += snap.delta * SNAP_PULL
-      if (Math.abs(snap.delta) < SNAP_SETTLE_THRESHOLD) {
+  if (!pointerState.isDown && projectAxes.length && time - pointerState.lastMoveAt > DRAG_RELEASE_SNAP_DELAY_MS) {
+    const snap = getNearestSnapTarget(targetRotation.y, targetRotationX.value)
+    if (snap.angle < SNAP_ANGLE_THRESHOLD) {
+      targetRotation.y += snap.yawDelta * SNAP_PULL
+      targetRotationX.value += snap.pitchDelta * SNAP_PULL
+      if (snap.angle < SNAP_SETTLE_THRESHOLD) {
         targetRotation.y = snap.yaw
+        targetRotationX.value = snap.pitch
       }
     }
   }
@@ -1466,7 +1464,7 @@ const tick = (time: number) => {
   updatePerformanceDebug(time)
   updateFragmentHoverPhysics()
 
-  const axisSpacing = projectAxes.length > 1 ? Math.PI / projectAxes.length : Math.PI / 2
+  const axisSpacing = projectAxes.length > 1 ? TAU / projectAxes.length : Math.PI / 2
   const baseFalloffAngle = Math.max(axisSpacing * FALLOFF_TO_MIN_AXIS_FRACTION, 0.0001)
   const visualFalloffAngle = clamp(baseFalloffAngle * VISUAL_FALLOFF_MULTIPLIER, 0.0001, Math.PI / 2)
   const visualBufferAngle = Math.min(
@@ -1602,18 +1600,7 @@ const handlePointerMove = (event: PointerEvent) => {
   const deltaX = event.clientX - pointerState.startX
   const deltaY = event.clientY - pointerState.startY
   targetRotation.y = pointerState.startRotY + deltaX * ROTATION_DRAG_FACTOR
-
-  const absDeltaY = Math.abs(deltaY)
-  if (absDeltaY <= ROTATION_X_DRAG_THRESHOLD_PX) {
-    targetRotationX.value = 0
-  } else {
-    const thresholdedDeltaY = deltaY - Math.sign(deltaY) * ROTATION_X_DRAG_THRESHOLD_PX
-    targetRotationX.value = clamp(
-      pointerState.startRotX + thresholdedDeltaY * ROTATION_DRAG_FACTOR * 2,
-      -ROTATION_X_MAX,
-      ROTATION_X_MAX
-    )
-  }
+  targetRotationX.value = pointerState.startRotX + deltaY * ROTATION_DRAG_FACTOR * 2
 
   pointerState.lastMoveAt = performance.now()
 }
@@ -1629,16 +1616,8 @@ const handlePointerUp = (event: PointerEvent) => {
   }
 
   pointerState.isDown = false
-  targetRotationX.value = 0
   pointerState.lastMoveAt = performance.now()
   isDragging.value = false
-
-  if (projectAxes.length) {
-    const snap = getNearestSnapTarget(targetRotation.y)
-    if (Math.abs(snap.delta) < SNAP_ANGLE_THRESHOLD) {
-      targetRotation.y = snap.yaw
-    }
-  }
 
   if (canvasHost.value?.hasPointerCapture(event.pointerId)) {
     canvasHost.value.releasePointerCapture(event.pointerId)
