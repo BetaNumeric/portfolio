@@ -2,7 +2,8 @@
 
 :root {
   --page-inline-padding: 8vw;
-  --project-card-max-width: 860px;
+  --content-max-width: 860px;
+  --project-card-max-width: var(--content-max-width);
   --site-bg: #181818;
   --site-text: #ffffff;
   --site-text-muted: rgba(255, 255, 255, 0.6);
@@ -172,8 +173,8 @@ a {
 }
 
 .site-header__wrapper {
-  width: min(calc(100% - (2 * var(--page-inline-padding))), var(--project-card-max-width));
-  max-width: var(--project-card-max-width);
+  width: min(calc(100% - (2 * var(--page-inline-padding))), var(--content-max-width));
+  max-width: var(--content-max-width);
   padding: 0;
   display: flex;
   justify-content: space-between;
