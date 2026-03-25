@@ -2,31 +2,51 @@
 layout: project
 title: Spiral
 year: 2025
-description: "A spiral calendar clock"
-heroImage: /projects/spiral/year_loop.mp4
-previewMedia: /projects/spiral/year_loop.mp4
+description: "A spiral time-visualization application inspired by Earth’s motion"
+heroImage: /projects/spiral/spiral_cover.png
+previewMedia: /projects/spiral/days.mp4
 ---
-<ProjectIntro image="/projects/spiral/year_loop_sq.mp4" externalLink="https://betanumeric.github.io/spiral/">
+<ProjectIntro image="/projects/spiral/week.mp4" externalLink="https://betanumeric.github.io/spiral/">
 
 **DESCRIPTION**
 
-This time-visualization application combines two time-measuring methods: the calendar and the clock. It uses the same motion we go through during a day as we move around Earth’s rotational axis. It doesn’t assume a circular repetition of days, as clocks do, but rather a continuous forward motion, as our planet does when it orbits the sun.The length of the solar illumination varies, since Earth's axis is tilted relative to the ecliptic (obliquity of the ecliptic). This is incorporated into the spiral with a subtle overlay that marks the time between sunset and sunrise for each day, based on the user’s location.
+This time-visualization application combines two time-measuring methods: the calendar and the clock. It uses the same motion we go through during a day as we move around Earth’s rotational axis. It doesn’t assume a circular repetition of days, as clocks do, but rather a continuous forward motion, as our planet does when it orbits the sun.
 
 </ProjectIntro>
 
 <ProjectAccordion :alwaysOpen="true" :centerImages="true">
 
+
+The length of the solar illumination varies throughout the year, since Earth's axis is tilted relative to the ecliptic (obliquity of the ecliptic). This is incorporated as a key feature into the spiral with a subtle overlay that marks the time between sunset and sunrise for each day, based on the user’s location.
+
+The first time-keeping device was the rotation of the planet. It is still engraved into us and most organisms we know through the circadian rhythm. 
+
+My goal was to visualize time less abstractly, that is, more closely related to our surroundings, and to make one see time in a cyclical but non-repeating continuous way. 
+By the nature of the spiral, events that are happening sooner appear bigger and closer.
+
+<div style="display: flex; justify-content: center; margin: 2rem 0;">
+  <iframe width="180" height="360" style="border-radius: 8px; max-width: 100%; aspect-ratio: 9/16;" src="https://www.youtube.com/embed/8Pw_GLi-HXI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
+
+To demonstrate the concept, I created a mockup of the spiral calendar in After Effects and Illustrator in 2019. I developed an interactive web-based version in 2025.
+
+
 ### Controls and Usage
 
 You navigate by performing a circular motion around the spiral's center. The spiral follows the finger/cursor and rotates with it: clockwise moves forward in time, counterclockwise rewinds. The spiral has inertia, so you can keep adding momentum by releasing it mid-motion, and it will keep rotating, slowing down until it stops. Pinch-zooming or scrolling lets you move through time faster, skipping in steps of whole days. When moving the spiral manually, each hour produces a light click sound/vibration, and crossing midnight produces a stronger one. Alternatively, you can navigate using the keyboard. The classical W, A, S, D, or the arrow keys move the spiral. The left and right arrows sweep the rotation precisely (use Alt for fine-tuning or Alt+Shift for sweeping fast), while the up and down arrows allow you to scroll in entire day-steps (use Alt for hour steps or Alt+Shift for week steps) just like scrolling would.
 
+
 By default, the spiral shows the current time and adjusts its position every second. To reset to the current time after the spiral has been rotated, double-tap anywhere outside the spiral. You can also quickly press the Spacebar or Home key to jump right back to the current time. The time display box at the bottom of the screen shows the date and time at which the calendar is currently scrolled to. Tapping it syncs the spiral to the device’s local time, resuming to update every second. It can be minimized by dragging it down.
+
 
 ### Visual Structure of the Spiral
 
 The beginning of a new day is marked by a thicker stroke at the 24:00 / 0:00 segment line. Similarly, a new month is indicated by a thicker arc line. Weekdays can be separated by a gradient overlay that makes each weekday slightly darker and resets on Mondays.
 
+![empty spiral](/projects/spiral/spiral_structure.png)
+
 Each day has its number and weekday written in the first segment; the first day of the month also has the month, and the first day of the year has the year number added to it. Around the outer segments are the hour numbers going from 0 to 23. Each revolution of the spiral is divided into 24 segments, representing the hours of a day. Hovering over them reveals the outline of the segment, and a tooltip text appears with the segment’s date and time. Clicking a segment opens a circular info screen in the middle. To properly accommodate the info circle, the calendar switches to a concentric-circle mode. It can be enlarged by zooming in, which maximizes its size in multiple steps. Clicking anywhere else or pressing the Escape key closes the open screen, panel, or event list, returning you to the spiral.
+
 
 ### Adding and Editing Events
 
@@ -34,13 +54,19 @@ The info circle lets you add an event to the calendar. It contains several input
 
 When you click the “Add Event” button at the bottom, the circle closes, and the event is added to the spiral calendar, coloring the area during which it takes place. Clicking any segment with an event in it opens a similar window, but with the event’s data already in the input fields. At the bottom, there are two buttons, one to delete the event and one to add a new event, which opens an empty circle like before. You can also quickly press the Delete or Backspace keys while an event is selected to trigger the deletion. If you change anything, the “add” button becomes a “done” button, which closes the event screen. When two or more events are added to the same segment, they will stack in the spiral. To access an overlapping event, you can click the selected segment multiple times or the chevron arrows at the top of the event circle to cycle through the events.
 
+![add events](/projects/spiral/add_event.mp4)
+
 Another feature is the manipulation of an event’s length in the spiral directly. When clicking on an event, it will open the event circle and also show a handle at the start and end of the event. You can click and drag each handle to increase or decrease the event’s length. While dragging, it will switch to spiral mode and hide the event screen. When releasing the handle, the event is saved with the new start and end time.
 
 All your events and configuration settings remain completely private, as the application stores its data entirely locally on your device within your browser's local storage.
 
+
 ### Event List Timeline
 
 The time display at the bottom of the screen can be pulled up to reveal an event list. Each event is listed chronologically here, grouped by day, with the event that is closest in the spiral being scrolled to the top and highlighted when it is selected. At the top, there is a search bar to find events by name (you can quickly pull up this list and jump straight to the search bar by simply pressing f or /). One can select which calendars are shown by toggling the active calendars in a list, or by long-pressing the calendar tag of an element to show only events from that calendar. Behind each event in the list, there is a delete “x” button that lets you remove the event, and an “add” button that lets you add the event to your local calendar app. At the top, there is also the option to delete all events or add all events to your local calendar. Clicking on an event in the list will skip to the first segment containing that event and open it in the info circle. At the top left corner of the screen is a “+” button that opens a panel with an alternative way to add events to the calendar (which can also be triggered globally at any time by pressing +, =, or n). It has the same options as the circle, but in a more classic form layout. It also includes the event list and an option to export all events as JSON or .ics files, and another button to import them.
+
+![event list](/projects/spiral/event_list.png)
+
 
 ### Settings
 
@@ -54,6 +80,7 @@ Another option is to change the color palette used to generate the random defaul
 
 At the bottom, there is the option to reset the settings to the default.
 
+
 ### Developer Mode and Experimental Features
 
 More experimental settings are hidden, but can be accessed in the developer mode.
@@ -62,15 +89,13 @@ For fine-grained control of the calendar's looks, the dev setting includes a gro
 
 Developer Mode also includes a random events generator used for testing. It is located at the bottom of the “Add Events” panel. With it, you can quickly populate the spiral with synthetic events spread across multiple days, using varying durations, start times, and calendars. This makes it easy to see how overlapping events stack, how different color palettes behave, and how the event list and interactions perform under heavier loads.
 
+
 ### Installation and Standalone App Support
 
 Spiral is built as a Progressive Web App (PWA) with full standalone support. Once loaded, it caches the necessary files and works completely offline without requiring a backend server.
 
-#### Using via Browser
 
-To run the application, simply visit the [Live Demo](https://betanumeric.github.io/spiral/). To set up the app locally, clone the repository, run a local web server (such as python -m http.server 8000 or npx serve), and open http://localhost:8000 in your browser.
-
-#### Adding to Home Screen (Mobiles & Tablets)
+To run the application, simply visit the [Live Demo](https://betanumeric.github.io/spiral/).
 
 Because it’s a PWA, you can install the app on your mobile device for a native, fullscreen viewing experience:
 
@@ -79,4 +104,6 @@ Android: Open the application in Chrome. A prompt to "Install app" or "Add Spira
 iOS / iPhone: Open the application in Safari. Tap the Share icon (the square with an arrow pointing up), scroll down, and tap "Add to Home Screen".
 
 
+
+![night time overlay](/projects/spiral/night_time.mp4)
 </ProjectAccordion>
