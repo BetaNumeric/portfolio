@@ -4,6 +4,9 @@ title: Spiral
 year: 2025
 description: "A spiral time-visualization application inspired by Earth’s motion"
 heroImage: /projects/spiral/spiral_cover.png
+heroComponent: LumaHeroEmbed
+heroEmbedUrl: "https://betanumeric.github.io/spiral/"
+heroEmbedTitle: "Spiral Live Demo"
 previewMedia: /projects/spiral/days.mp4
 ---
 <ProjectIntro image="/projects/spiral/week.mp4" externalLink="https://betanumeric.github.io/spiral/">
