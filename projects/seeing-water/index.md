@@ -71,8 +71,6 @@ I also tried mixing the water with guar gum powder, to change its viscosity. Thi
 
 I got rid of the discoloration of the water by using refined Xanthan gum, used as a treatment for dysphagia. But there were still small particles in the water so I switched back to pure water.
 
-![seeing water eye](/projects/seeing-water/seeing_water_header.jpg)
-
 To better control the background, I tried to use a monitor instead of printed out photos. But to freeze the short moment of weightlessness, the camera needs a lot of light and even with a high ISO and the highest shutter speed, I wasn’t able to freeze the droplet as good as with a flash. And using a flash against the display only caused it to reflect the light and blow out the image.
 To solve this problem, I took apart a liquid crystal display and removed the backlight.
 
@@ -133,7 +131,6 @@ In Processing, I wrote a program that lets me control the position of the image,
 For the exhibition I used an extra display connected to the camera, to present the images it just took.
 
 </ProjectAccordion>
-
 
 
 

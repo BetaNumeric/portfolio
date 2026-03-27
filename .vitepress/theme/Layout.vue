@@ -26,15 +26,29 @@ const normalizePath = (path: string) => {
 
 const currentPath = computed(() => normalizePath(route.path))
 
-const footerProjects = computed(() => {
+const RELATED_PROJECT_COUNT = 3
+
+const getDeterministicSeed = (input: string) => {
+  let hash = 0
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0
+  }
+  return hash
+}
+
+const selectRelatedProjects = (salt: string) => {
   const candidates = projectsData.filter((project) => {
     if (!project?.link) return false
     return normalizePath(project.link) !== currentPath.value
   })
 
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, 3)
-})
+  if (!candidates.length) return []
+
+  const offset = getDeterministicSeed(`${currentPath.value}:${salt}`) % candidates.length
+  return [...candidates.slice(offset), ...candidates.slice(0, offset)].slice(0, RELATED_PROJECT_COUNT)
+}
+
+const footerProjects = computed(() => selectRelatedProjects('footer'))
 const isHome = computed(() => frontmatter.value.layout === 'home' || frontmatter.value.home)
 const isProject = computed(() => frontmatter.value.layout === 'project')
 const projects = computed(() => frontmatter.value.projects ?? projectsData)
@@ -66,15 +80,7 @@ const setHomeGridLayout = async (layout: 'single' | 'two') => {
   syncProjectCardsWithViewport()
 }
 const isHomeTwoColumnCards = computed(() => isHome.value && homeGridLayout.value === 'two')
-const otherProjects = computed(() => {
-  const candidates = projectsData.filter((project) => {
-    if (!project?.link) return false
-    return normalizePath(project.link) !== currentPath.value
-  })
-
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, 3)
-})
+const otherProjects = computed(() => selectRelatedProjects('other'))
 
 const galleryMedia = computed<string[]>(() => {
   const media = frontmatter.value.gallery
@@ -86,6 +92,7 @@ const galleryMedia = computed<string[]>(() => {
 const lightboxIndex = ref<number | null>(null)
 const isLightboxOpen = computed(() => lightboxIndex.value !== null)
 const transitionDirection = ref('next')
+let previousBodyOverflow = ''
 
 // Swipe/Drag logic
 const isDragging = ref(false)
@@ -145,16 +152,25 @@ const handleBackdropClick = () => {
 }
 
 const openLightbox = (index: number) => {
+  if (typeof document !== 'undefined' && lightboxIndex.value === null) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
   lightboxIndex.value = index
-  document.body.style.overflow = 'hidden'
   window.addEventListener('keydown', handleKeydown)
 }
 
 const closeLightbox = () => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = previousBodyOverflow
+  }
+  previousBodyOverflow = ''
   lightboxIndex.value = null
-  document.body.style.overflow = ''
   window.removeEventListener('keydown', handleKeydown)
   isDragging.value = false
+  dragStartX.value = 0
+  dragCurrentX.value = 0
+  recentlyDragged.value = false
 }
 
 const nextImage = () => {
@@ -191,6 +207,8 @@ const isActive = (link: string) => {
   if (link === '/') return route.path === '/'
   return route.path.startsWith(link)
 }
+
+const shouldOpenInNewTab = (link: string) => /^https?:\/\//i.test(link)
 
 const isNavbarHidden = ref(false)
 let lastScrollY = 0
@@ -462,6 +480,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  closeLightbox()
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('mousemove', handleScrollbarRevealMove)
   window.removeEventListener('mouseleave', handleWindowMouseLeave)
@@ -489,6 +508,8 @@ const resetProjectCards = () => {
 watch(
   () => route.path,
   () => {
+    closeLightbox()
+    mobileNavOpen.value = false
     if (isHome.value) {
       homeGridLayout.value = resolveHomeGridLayout()
     }
@@ -839,10 +860,12 @@ const handleLeave = (event: MouseEvent) => {
             :key="link.link"
             :href="link.link"
             class="social-link"
-            target="_blank"
-            rel="noreferrer"
+            :target="shouldOpenInNewTab(link.link) ? '_blank' : undefined"
+            :rel="shouldOpenInNewTab(link.link) ? 'noreferrer' : undefined"
+            :aria-label="link.name || link.icon || link.link"
+            :title="link.name || link.icon || link.link"
           >
-            <img v-if="link.icon" :src="withBase(`/assets/icons/${link.icon}.svg`)" :alt="link.name" class="social-icon" />
+            <img v-if="link.icon" :src="withBase(`/assets/icons/${link.icon}.svg`)" alt="" aria-hidden="true" class="social-icon" />
             <span v-else>{{ link.name }}</span>
           </a>
         </div>

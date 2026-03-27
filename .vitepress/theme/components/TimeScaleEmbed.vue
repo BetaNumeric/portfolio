@@ -127,10 +127,6 @@ onUnmounted(() => {
   if (w.__VP_VENDOR_P5_GLOBAL === inst) {
     w.__VP_VENDOR_P5_GLOBAL = null
   }
-  // Clean up: remove the p5 instance if it exists
-  if ((window as any).remove) {
-    (window as any).remove()
-  }
 })
 </script>
 

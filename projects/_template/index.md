@@ -2,7 +2,7 @@
 layout: project
 title: Project Title
 year: 2024
-heroImage: /projects/_template/header.jpg
+heroImage: /projects/_template/placeholder.svg
 
 ---
 
@@ -13,7 +13,7 @@ NOTE:
 3. Place your assets (images, videos) in `public/projects/your-new-project-name/`.
 -->
 
-<ProjectIntro video="/projects/_template/loop.mp4" fullVideo="https://youtu.be/VIDEO_ID" image="/projects/_template/header.jpg">
+<ProjectIntro fullVideo="https://youtu.be/VIDEO_ID" image="/projects/_template/placeholder.svg">
 
 **DESCRIPTION**
 
@@ -25,7 +25,7 @@ Short description of the project goes here. This text appears next to the main m
 
 Detailed description of the project. This is a good place for the conceptual background.
 
-![Image Alt Text](/projects/_template/example_1.jpg)
+![Image Alt Text](/projects/_template/placeholder.svg)
 
 </ProjectAccordion>
 
@@ -38,6 +38,6 @@ Detailed description of the project. This is a good place for the conceptual bac
 
 Description of the development process.
 
-![Development Image](/projects/_template/dev_1.jpg)
+![Development Image](/projects/_template/placeholder.svg)
 
 </ProjectAccordion>

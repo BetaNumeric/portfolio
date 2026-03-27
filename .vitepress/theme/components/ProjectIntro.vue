@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onUnmounted, computed } from 'vue'
 import { withBase } from 'vitepress'
-// load lottie-web dynamically to avoid SSR/window errors
 
 const props = defineProps<{
   video?: string
@@ -12,11 +11,10 @@ const props = defineProps<{
   externalLink?: string
 }>()
 
-const lottieContainer = ref<HTMLDivElement | null>(null)
-const mediaContainer = ref<HTMLDivElement | null>(null)
-const showLottie = ref(false)
+const showIndicator = ref(false)
 const isLightboxOpen = ref(false)
 const videoExtensionPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
+let previousBodyOverflow = ''
 
 const isVideoFile = (source?: string) => {
   if (!source) return false
@@ -62,40 +60,30 @@ const embedUrl = computed(() => {
 
 const openLightbox = () => {
   if (props.externalLink) {
-    window.open(props.externalLink, '_blank')
+    window.open(props.externalLink, '_blank', 'noopener,noreferrer')
   } else if (props.fullVideo) {
     isLightboxOpen.value = true
-    // Prevent scrolling when lightbox is open
+    previousBodyOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
   }
 }
 
 const closeLightbox = () => {
   isLightboxOpen.value = false
-  document.body.style.overflow = ''
+  document.body.style.overflow = previousBodyOverflow
+  previousBodyOverflow = ''
 }
 
-onMounted(() => {
-  if (lottieContainer.value) {
-    import('lottie-web').then((mod) => {
-      const lottie = (mod && (mod.default ?? mod))
-      lottie.loadAnimation({
-        container: lottieContainer.value,
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        path: withBase('/assets/lotties/play.json')
-      })
-    }).catch((e) => console.warn('failed to load lottie-web', e))
-  }
+onUnmounted(() => {
+  closeLightbox()
 })
 
 const handleMouseEnter = () => {
-  showLottie.value = true
+  showIndicator.value = true
 }
 
 const handleMouseLeave = () => {
-  showLottie.value = false
+  showIndicator.value = false
 }
 </script>
 
@@ -104,7 +92,6 @@ const handleMouseLeave = () => {
     <div 
       class="project-main-media" 
       :class="{ 'is-clickable': !!(fullVideo || externalLink) }"
-      ref="mediaContainer" 
       @mouseenter="handleMouseEnter" 
       @mouseleave="handleMouseLeave"
       @click="openLightbox"
@@ -120,7 +107,11 @@ const handleMouseLeave = () => {
         preload="metadata"
       ></video>
       <img v-else-if="mediaImage" :src="withBase(mediaImage)" :alt="alt || 'Project media'">
-      <div v-if="fullVideo || externalLink" ref="lottieContainer" class="lottie-overlay" :class="{ 'is-visible': showLottie }"></div>
+      <div v-if="fullVideo || externalLink" class="play-overlay" :class="{ 'is-visible': showIndicator }" aria-hidden="true">
+        <div class="play-overlay__badge">
+          <span class="play-overlay__icon"></span>
+        </div>
+      </div>
     </div>
     
     <div class="project-intro-text">
@@ -204,19 +195,36 @@ const handleMouseLeave = () => {
   opacity: 0.7;
 }
 
-.lottie-overlay {
+.play-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
+  inset: 0;
+  display: grid;
+  place-items: center;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.6s ease;
 }
 
-.lottie-overlay.is-visible {
-  opacity: 0.7;
+.play-overlay.is-visible {
+  opacity: 1;
+}
+
+.play-overlay__badge {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.play-overlay__icon {
+  width: 0;
+  height: 0;
+  margin-left: 8px;
+  border-top: 16px solid transparent;
+  border-bottom: 16px solid transparent;
+  border-left: 24px solid #ffffff;
 }
 </style>

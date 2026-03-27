@@ -1,10 +1,4 @@
 import { defineConfig } from 'vitepress'
-// @ts-ignore: Node.js built-in 'fs' may not have type declarations in this environment (used at build time)
-import fs from 'fs'
-// @ts-ignore: Node.js built-in 'path' may not have type declarations in this environment (used at build time)
-import path from 'path'
-
-declare const process: any
 const siteBase = '/portfolio/'
 const videoAssetPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
 
@@ -18,33 +12,10 @@ const withSiteBase = (src: string) => {
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   base: siteBase,
-  title: "Tim",
-  ignoreDeadLinks: true,
-  description: "Artist & creative technologist focusing on generative visuals, installations, and experimental media.",
-  vite: {
-    plugins: [
-      {
-        name: 'ignore-missing-public-assets',
-        resolveId(id) {
-          // If the import path starts with /projects/, check if it truly exists
-          if (id.startsWith('/projects/')) {
-            const publicFile = path.join(process.cwd(), 'public', id)
-            if (!fs.existsSync(publicFile)) {
-              // Redirect to a virtual ID handled by load()
-              return '\0missing-asset:' + id
-            }
-          }
-        },
-        load(id) {
-          if (id.startsWith('\0missing-asset:')) {
-             const realPath = id.slice('\0missing-asset:'.length)
-             // Return the path as a string, so the img tag gets the src string
-             return `export default "${realPath}"`
-          }
-        }
-      }
-    ]
-  },
+  title: 'Tim',
+  ignoreDeadLinks: false,
+  description:
+    'Artist & creative technologist focusing on generative visuals, installations, and experimental media.',
   markdown: {
     config(md) {
       const defaultImageRenderer = md.renderer.rules.image
@@ -81,21 +52,12 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'vimeo', link: 'https://vimeo.com/eydeet' },
-      { icon: 'youtube', link: 'https://www.youtube.com/user/DerEydeet' },
-      { icon: 'instagram', link: 'https://instagram.com/eydeet' },
-      { icon: 'github', link: 'https://github.com/BetaNumeric' },
-      { icon: 'linkedin', link: 'https://linkedin.com/in/timredlich' },
-      { icon: 'mail', link: 'mailto:tim.red@web.de' }
-    ],
-    footer: {
-      message: "Tim Redlich | Portfolio"
-    },
-    footerLinks: [
-      { text: "Recursive Emergence", link: "/projects/recursive-emergence" },
-      { text: "Time Scale", link: "/projects/time" },
-      { text: "Breathing Trees", link: "/projects/breathing-trees" },
-      { text: "Seeing Water", link: "/projects/seeing-water" }
+      { name: 'Vimeo', icon: 'vimeo', link: 'https://vimeo.com/eydeet' },
+      { name: 'YouTube', icon: 'youtube', link: 'https://www.youtube.com/user/DerEydeet' },
+      { name: 'Instagram', icon: 'instagram', link: 'https://instagram.com/eydeet' },
+      { name: 'GitHub', icon: 'github', link: 'https://github.com/BetaNumeric' },
+      { name: 'LinkedIn', icon: 'linkedin', link: 'https://linkedin.com/in/timredlich' },
+      { name: 'Email', icon: 'mail', link: 'mailto:tim.red@web.de' }
     ]
   } as any,
 })
