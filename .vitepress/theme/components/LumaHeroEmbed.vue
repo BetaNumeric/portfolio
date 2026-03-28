@@ -5,14 +5,37 @@ const props = withDefaults(
   defineProps<{
     src: string
     title?: string
+    darkMode?: boolean | null
+    layoutPreset?: string | null
   }>(),
   {
     title: 'Luma embed',
+    darkMode: null,
+    layoutPreset: null,
   }
 )
 
 // Guard against accidental whitespace/newlines in long query URLs.
-const embedSrc = computed(() => props.src.replace(/\s+/g, ''))
+const embedSrc = computed(() => {
+  const cleanedSrc = props.src.replace(/\s+/g, '')
+  if (!cleanedSrc) return cleanedSrc
+
+  try {
+    const url = new URL(cleanedSrc)
+
+    if (typeof props.darkMode === 'boolean') {
+      url.searchParams.set('theme', props.darkMode ? 'dark' : 'light')
+    }
+
+    if (props.layoutPreset) {
+      url.searchParams.set('preset', props.layoutPreset)
+    }
+
+    return url.toString()
+  } catch {
+    return cleanedSrc
+  }
+})
 </script>
 
 <template>
@@ -51,4 +74,3 @@ const embedSrc = computed(() => props.src.replace(/\s+/g, ''))
   }
 }
 </style>
-

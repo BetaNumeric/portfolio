@@ -580,6 +580,8 @@ const handleLeave = (event: MouseEvent) => {
       v-else-if="isProject && frontmatter.heroComponent === 'LumaHeroEmbed' && frontmatter.heroEmbedUrl"
       :src="frontmatter.heroEmbedUrl"
       :title="frontmatter.heroEmbedTitle || frontmatter.title || 'Luma embed'"
+      :dark-mode="typeof frontmatter.heroEmbedDarkMode === 'boolean' ? frontmatter.heroEmbedDarkMode : null"
+      :layout-preset="typeof frontmatter.heroEmbedLayoutPreset === 'string' ? frontmatter.heroEmbedLayoutPreset : null"
     />
     <div
       v-else-if="isProject && frontmatter.heroImage"
