@@ -7,8 +7,12 @@ heroImage: /projects/spiral/spiral_cover.png
 heroComponent: LumaHeroEmbed
 heroEmbedUrl: "https://betanumeric.github.io/spiral/"
 heroEmbedTitle: "Spiral Live Demo"
-heroEmbedDarkMode: true
+heroEmbedDarkMode: auto
 heroEmbedLayoutPreset: minimal
+heroEmbedHeight: "66vh"
+heroEmbedMinHeight: "420px"
+heroEmbedMobileHeight: "56vh"
+heroEmbedMobileMinHeight: "340px"
 previewMedia: /projects/spiral/days.mp4
 ---
 <ProjectIntro image="/projects/spiral/week.mp4" externalLink="https://betanumeric.github.io/spiral/">

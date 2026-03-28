@@ -214,6 +214,12 @@ const isNavbarHidden = ref(false)
 let lastScrollY = 0
 let scrollDirection: 'up' | 'down' = 'up'
 
+const resolvedHeroEmbedDarkMode = computed<boolean | null>(() => {
+  const requested = frontmatter.value.heroEmbedDarkMode
+  if (requested === 'auto') return isDark.value
+  return typeof requested === 'boolean' ? requested : null
+})
+
 const handleScroll = () => {
   const currentScrollY = window.scrollY
   updateOverlayScrollbar()
@@ -580,8 +586,12 @@ const handleLeave = (event: MouseEvent) => {
       v-else-if="isProject && frontmatter.heroComponent === 'LumaHeroEmbed' && frontmatter.heroEmbedUrl"
       :src="frontmatter.heroEmbedUrl"
       :title="frontmatter.heroEmbedTitle || frontmatter.title || 'Luma embed'"
-      :dark-mode="typeof frontmatter.heroEmbedDarkMode === 'boolean' ? frontmatter.heroEmbedDarkMode : null"
+      :dark-mode="resolvedHeroEmbedDarkMode"
       :layout-preset="typeof frontmatter.heroEmbedLayoutPreset === 'string' ? frontmatter.heroEmbedLayoutPreset : null"
+      :height="typeof frontmatter.heroEmbedHeight === 'string' ? frontmatter.heroEmbedHeight : null"
+      :min-height="typeof frontmatter.heroEmbedMinHeight === 'string' ? frontmatter.heroEmbedMinHeight : null"
+      :mobile-height="typeof frontmatter.heroEmbedMobileHeight === 'string' ? frontmatter.heroEmbedMobileHeight : null"
+      :mobile-min-height="typeof frontmatter.heroEmbedMobileMinHeight === 'string' ? frontmatter.heroEmbedMobileMinHeight : null"
     />
     <div
       v-else-if="isProject && frontmatter.heroImage"

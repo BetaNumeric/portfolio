@@ -7,11 +7,19 @@ const props = withDefaults(
     title?: string
     darkMode?: boolean | null
     layoutPreset?: string | null
+    height?: string | null
+    minHeight?: string | null
+    mobileHeight?: string | null
+    mobileMinHeight?: string | null
   }>(),
   {
     title: 'Luma embed',
     darkMode: null,
     layoutPreset: null,
+    height: null,
+    minHeight: null,
+    mobileHeight: null,
+    mobileMinHeight: null,
   }
 )
 
@@ -36,10 +44,19 @@ const embedSrc = computed(() => {
     return cleanedSrc
   }
 })
+
+const heroStyle = computed(() => {
+  return {
+    '--luma-hero-height': props.height ?? '60vh',
+    '--luma-hero-min-height': props.minHeight ?? '380px',
+    '--luma-hero-mobile-height': props.mobileHeight ?? '50vh',
+    '--luma-hero-mobile-min-height': props.mobileMinHeight ?? '320px',
+  }
+})
 </script>
 
 <template>
-  <section class="luma-hero">
+  <section class="luma-hero" :style="heroStyle">
     <iframe
       :src="embedSrc"
       :title="title"
@@ -54,8 +71,8 @@ const embedSrc = computed(() => {
 <style scoped>
 .luma-hero {
   width: 100%;
-  height: 60vh;
-  min-height: 380px;
+  height: var(--luma-hero-height);
+  min-height: var(--luma-hero-min-height);
   margin-top: 60px; /* keep clear of fixed header */
   border-bottom: 1px solid var(--site-border);
   background: var(--site-bg);
@@ -69,8 +86,8 @@ const embedSrc = computed(() => {
 
 @media (max-width: 768px) {
   .luma-hero {
-    height: 50vh;
-    min-height: 320px;
+    height: var(--luma-hero-mobile-height);
+    min-height: var(--luma-hero-mobile-min-height);
   }
 }
 </style>
