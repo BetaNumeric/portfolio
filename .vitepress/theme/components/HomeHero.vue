@@ -122,7 +122,7 @@ const tempSpinEuler = new THREE.Euler()
 const tempRotationEuler = new THREE.Euler()
 const tempLocalViewAxis = new THREE.Vector3()
 const projectAlignmentScores: number[] = []
-const softClosestWeights: number[] = new Array(projects.length).fill(0)
+const projectFocusWeights: number[] = new Array(projects.length).fill(0)
 const hoverRaycaster = new THREE.Raycaster()
 const hoverInteractionPlane = new THREE.Plane()
 
@@ -155,6 +155,12 @@ const pointerState = {
   lastMoveAt: 0,
 }
 
+const introState = {
+  active: true,
+  startTime: 0,
+  progress: 0,
+}
+
 const VIEW_HEIGHT = 100
 const IMAGE_PLANE_HEIGHT = 77
 const NORMALIZED_IMAGE_ASPECT = 16 / 9
@@ -175,6 +181,16 @@ const ROTATION_X_LERP = 0.12
 const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(55)
 const IDLE_PROJECT_ADVANCE_DELAY_MS = 7000
 const DRAG_RELEASE_SNAP_DELAY_MS = 220
+const INTRO_DELAY_MS = 140
+const INTRO_DURATION_MS = 2800
+const INTRO_START_YAW = 0
+const INTRO_START_PITCH = THREE.MathUtils.degToRad(58)
+const INTRO_START_CAMERA_Y = 74
+const INTRO_START_CAMERA_Z = 360
+const INTRO_END_CAMERA_Y = 0
+const INTRO_END_CAMERA_Z = 220
+const INTRO_START_ZOOM = 0.54
+const INTRO_END_ZOOM = 1
 const HOVER_MOVE_THRESHOLD = 0.02
 const HOVER_RADIUS_MIN = 5
 const HOVER_RADIUS_MAX = 18
@@ -203,20 +219,16 @@ const HOVER_RETURN_MS = 260
 const AUTO_ROTATE_SPEED = 0
 const FRAGMENT_OPACITY_MIN = 0.10
 const FRAGMENT_OPACITY_MAX = 0.98
-const FRAGMENT_OPACITY_ALIGNMENT_EXP = 2.8
-const FALLOFF_TO_MIN_AXIS_FRACTION = 0.8
-const VISUAL_FALLOFF_MULTIPLIER = 2
-const VISUAL_ALIGNMENT_BUFFER_AXIS_FRACTION = 0.1
-const VISUAL_ALIGNMENT_BUFFER_MIN_ANGLE = THREE.MathUtils.degToRad(2)
-const VISUAL_ALIGNMENT_BUFFER_MAX_ANGLE = THREE.MathUtils.degToRad(6)
+const FRAGMENT_OPACITY_FADE_START = 0.56
+const FRAGMENT_OPACITY_FADE_END = 0.97
+const PROJECT_FOCUS_SOFT_SELECTION = 18
+const PROJECT_FOCUS_BLEND_EXP = 1.6
 const LOD_ALIGNMENT_BUFFER_AXIS_FRACTION = 0.4
 const LOD_ALIGNMENT_BUFFER_MIN_ANGLE = THREE.MathUtils.degToRad(8)
 const LOD_ALIGNMENT_BUFFER_MAX_ANGLE = THREE.MathUtils.degToRad(18)
 const FRAGMENT_LOD_MIN_FRACTION = 0.3
 const FRAGMENT_LOD_ALIGNMENT_EXP = 2.7
 const FRAGMENT_LOD_FALLOFF_ANGLE = THREE.MathUtils.degToRad(90)
-const CLOSEST_PROJECT_LOCK_EXP = 1.6
-const CLOSEST_PROJECT_SOFT_SELECTION = 20
 const SNAP_ANGLE_THRESHOLD = THREE.MathUtils.degToRad(20)
 const SNAP_PULL = 0.22
 const SNAP_SETTLE_THRESHOLD = THREE.MathUtils.degToRad(0.25)
@@ -236,6 +248,14 @@ const FRAGMENT_SPAN_OPTIONS: FragmentSpan[] = [
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max)
+}
+
+const lerp = (from: number, to: number, alpha: number) => {
+  return from + (to - from) * alpha
+}
+
+const easeInOutCubic = (value: number) => {
+  return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2
 }
 
 const randomBetween = (random: () => number, min: number, max: number) => {
@@ -318,9 +338,100 @@ const getWrappedTurnTarget = (target: number, from: number) => {
   return target + Math.round((from - target) / TAU) * TAU
 }
 
+const getProjectOrientationCandidates = (projectIndex: number, fromYaw: number, fromPitch: number) => {
+  const baseYaw = projectTargetYaws[projectIndex] ?? 0
+  const basePitch = projectTargetPitches[projectIndex] ?? 0
+
+  return [
+    {
+      yaw: getWrappedTurnTarget(baseYaw, fromYaw),
+      pitch: getWrappedTurnTarget(basePitch, fromPitch),
+    },
+    {
+      yaw: getWrappedTurnTarget(baseYaw + Math.PI, fromYaw),
+      pitch: getWrappedTurnTarget(Math.PI - basePitch, fromPitch),
+    },
+  ]
+}
+
+const pickNearestOrientationCandidate = (
+  candidates: Array<{ yaw: number; pitch: number }>,
+  fromYaw: number,
+  fromPitch: number
+) => {
+  let bestCandidate = candidates[0]
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index]
+    const distance = Math.hypot(candidate.yaw - fromYaw, candidate.pitch - fromPitch)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestCandidate = candidate
+    }
+  }
+
+  return bestCandidate
+}
+
 const getLocalViewDirectionForRotation = (yaw: number, pitch: number, target = new THREE.Vector3()) => {
   tempQuaternion.setFromEuler(tempRotationEuler.set(pitch, yaw, 0))
   return target.set(0, 0, 1).applyQuaternion(tempQuaternion.invert())
+}
+
+const setCameraPose = (positionY: number, positionZ: number, zoom: number) => {
+  if (!camera) return
+
+  camera.position.set(0, positionY, positionZ)
+  camera.zoom = zoom
+  camera.lookAt(0, 0, 0)
+  camera.updateProjectionMatrix()
+}
+
+const stopIntroAnimation = (time = performance.now()) => {
+  if (!introState.active) return
+
+  introState.active = false
+  introState.startTime = 0
+  introState.progress = 1
+  targetRotation.y = rotation.y
+  targetRotationX.value = rotationX.value
+  setCameraPose(INTRO_END_CAMERA_Y, INTRO_END_CAMERA_Z, INTRO_END_ZOOM)
+  pointerState.lastMoveAt = time
+}
+
+const updateIntroAnimation = (time: number) => {
+  if (!introState.active) return false
+
+  if (!introState.startTime) {
+    introState.startTime = time
+  }
+
+  const finalYaw = projectTargetYaws[0] ?? 0
+  const finalPitch = projectTargetPitches[0] ?? 0
+  const elapsed = Math.max(time - introState.startTime - INTRO_DELAY_MS, 0)
+  const progress = clamp(elapsed / INTRO_DURATION_MS, 0, 1)
+  const eased = easeInOutCubic(progress)
+  introState.progress = eased
+
+  rotation.y = lerp(INTRO_START_YAW, finalYaw, eased)
+  targetRotation.y = rotation.y
+  rotationX.value = lerp(INTRO_START_PITCH, finalPitch, eased)
+  targetRotationX.value = rotationX.value
+  setCameraPose(
+    lerp(INTRO_START_CAMERA_Y, INTRO_END_CAMERA_Y, eased),
+    lerp(INTRO_START_CAMERA_Z, INTRO_END_CAMERA_Z, eased),
+    lerp(INTRO_START_ZOOM, INTRO_END_ZOOM, eased)
+  )
+
+  if (progress >= 1) {
+    introState.active = false
+    introState.startTime = 0
+    introState.progress = 1
+    pointerState.lastMoveAt = time
+  }
+
+  return introState.active
 }
 
 const getNearestSnapTarget = (currentYaw: number, currentPitch: number) => {
@@ -348,49 +459,42 @@ const getNearestSnapTarget = (currentYaw: number, currentPitch: number) => {
     }
   }
 
-  const baseYaw = projectTargetYaws[nearestIndex] ?? 0
-  const pitch = getWrappedTurnTarget(projectTargetPitches[nearestIndex] ?? 0, currentPitch)
-  const yaw = getWrappedTurnTarget(baseYaw, currentYaw)
+  const nearestOrientation = pickNearestOrientationCandidate(
+    getProjectOrientationCandidates(nearestIndex, currentYaw, currentPitch),
+    currentYaw,
+    currentPitch
+  )
 
   return {
     index: nearestIndex,
-    yaw,
-    pitch,
-    yawDelta: yaw - currentYaw,
-    pitchDelta: pitch - currentPitch,
+    yaw: nearestOrientation.yaw,
+    pitch: nearestOrientation.pitch,
+    yawDelta: nearestOrientation.yaw - currentYaw,
+    pitchDelta: nearestOrientation.pitch - currentPitch,
     angle: nearestAngle,
   }
 }
 
-const goToProjectIndex = (projectIndex: number, direction = 0) => {
+const goToProjectIndex = (projectIndex: number) => {
   if (!projectAxes.length) return
+  stopIntroAnimation()
 
   const normalizedIndex = ((projectIndex % projectAxes.length) + projectAxes.length) % projectAxes.length
-  let targetYaw = projectTargetYaws[normalizedIndex] ?? 0
-  const targetPitch = getWrappedTurnTarget(projectTargetPitches[normalizedIndex] ?? 0, targetRotationX.value)
-  const epsilon = 0.0001
+  const targetOrientation = pickNearestOrientationCandidate(
+    getProjectOrientationCandidates(normalizedIndex, targetRotation.y, targetRotationX.value),
+    targetRotation.y,
+    targetRotationX.value
+  )
 
-  if (direction > 0) {
-    while (targetYaw >= targetRotation.y - epsilon) {
-      targetYaw -= TAU
-    }
-  } else if (direction < 0) {
-    while (targetYaw <= targetRotation.y + epsilon) {
-      targetYaw += TAU
-    }
-  } else {
-    targetYaw += Math.round((targetRotation.y - targetYaw) / TAU) * TAU
-  }
-
-  targetRotation.y = targetYaw
-  targetRotationX.value = targetPitch
+  targetRotation.y = targetOrientation.yaw
+  targetRotationX.value = targetOrientation.pitch
   pointerState.lastMoveAt = performance.now()
 }
 
 const rotateToRelativeProject = (direction: number) => {
   if (!projectAxes.length) return
   const nextIndex = activeProjectIndex.value + direction
-  goToProjectIndex(nextIndex, direction)
+  goToProjectIndex(nextIndex)
 }
 
 const goToPreviousProject = () => {
@@ -765,9 +869,11 @@ const updateHoverPointerFromEvent = (event: PointerEvent) => {
 
   const normalizedX = clamp((event.clientX - rect.left) / rect.width, 0, 1)
   const normalizedY = clamp((event.clientY - rect.top) / rect.height, 0, 1)
+  const now = performance.now()
   hoverPointerState.ndc.set(normalizedX * 2 - 1, -(normalizedY * 2 - 1))
   hoverPointerState.inside = true
-  hoverPointerState.lastMoveAt = performance.now()
+  hoverPointerState.lastMoveAt = now
+  pointerState.lastMoveAt = now
 }
 
 const clearHoverPointer = () => {
@@ -1374,7 +1480,9 @@ const updateActiveProject = () => {
     }
   }
 
-  if (bestIndex !== activeProjectIndex.value) {
+  if (introState.active) {
+    activeProjectIndex.value = 0
+  } else if (bestIndex !== activeProjectIndex.value) {
     activeProjectIndex.value = bestIndex
   }
 
@@ -1435,16 +1543,22 @@ const tick = (time: number) => {
   if (disposed) return
   const delta = lastFrameTime ? time - lastFrameTime : 16
   lastFrameTime = time
+  const introActive = updateIntroAnimation(time)
 
-  if (!pointerState.isDown && time - pointerState.lastMoveAt > IDLE_PROJECT_ADVANCE_DELAY_MS) {
+  if (!introActive && !pointerState.isDown && time - pointerState.lastMoveAt > IDLE_PROJECT_ADVANCE_DELAY_MS) {
     goToNextProject()
   }
 
-  if (!pointerState.isDown && time - pointerState.lastMoveAt > 1600) {
+  if (!introActive && !pointerState.isDown && time - pointerState.lastMoveAt > 1600) {
     targetRotation.y += delta * AUTO_ROTATE_SPEED
   }
 
-  if (!pointerState.isDown && projectAxes.length && time - pointerState.lastMoveAt > DRAG_RELEASE_SNAP_DELAY_MS) {
+  if (
+    !introActive &&
+    !pointerState.isDown &&
+    projectAxes.length &&
+    time - pointerState.lastMoveAt > DRAG_RELEASE_SNAP_DELAY_MS
+  ) {
     const snap = getNearestSnapTarget(targetRotation.y, targetRotationX.value)
     if (snap.angle < SNAP_ANGLE_THRESHOLD) {
       targetRotation.y += snap.yawDelta * SNAP_PULL
@@ -1456,40 +1570,37 @@ const tick = (time: number) => {
     }
   }
 
-  rotation.y += (targetRotation.y - rotation.y) * ROTATION_LERP
-  rotationX.value += (targetRotationX.value - rotationX.value) * ROTATION_X_LERP
+  if (!introActive) {
+    rotation.y += (targetRotation.y - rotation.y) * ROTATION_LERP
+    rotationX.value += (targetRotationX.value - rotationX.value) * ROTATION_X_LERP
+  }
 
   fragmentGroup.rotation.set(rotationX.value, rotation.y, 0)
   updateActiveProject()
   updatePerformanceDebug(time)
   updateFragmentHoverPhysics()
 
-  const axisSpacing = projectAxes.length > 1 ? TAU / projectAxes.length : Math.PI / 2
-  const baseFalloffAngle = Math.max(axisSpacing * FALLOFF_TO_MIN_AXIS_FRACTION, 0.0001)
-  const visualFalloffAngle = clamp(baseFalloffAngle * VISUAL_FALLOFF_MULTIPLIER, 0.0001, Math.PI / 2)
-  const visualBufferAngle = Math.min(
-    clamp(
-      axisSpacing * VISUAL_ALIGNMENT_BUFFER_AXIS_FRACTION,
-      VISUAL_ALIGNMENT_BUFFER_MIN_ANGLE,
-      VISUAL_ALIGNMENT_BUFFER_MAX_ANGLE
-    ),
-    Math.max(visualFalloffAngle - 0.0001, 0)
-  )
   const maxAlignmentScore = projectAlignmentScores.reduce((best, value) => {
     return Math.max(best, clamp(value ?? 0, 0, 1))
   }, 0)
+  const fadeProgress = easeInOutCubic(
+    clamp(
+      (maxAlignmentScore - FRAGMENT_OPACITY_FADE_START) /
+        Math.max(FRAGMENT_OPACITY_FADE_END - FRAGMENT_OPACITY_FADE_START, 0.0001),
+      0,
+      1
+    )
+  )
+  const backgroundOpacity = lerp(FRAGMENT_OPACITY_MAX, FRAGMENT_OPACITY_MIN, fadeProgress)
+  const neutralFocusWeight = 1 / Math.max(projects.length, 1)
+  let totalFocusWeight = 0
 
-  softClosestWeights.fill(0)
-  for (let index = 0; index < fragmentMeshes.length; index += 1) {
-    const mesh = fragmentMeshes[index]
-    if (!mesh) continue
-    const meshData = mesh.userData as FragmentMeshData
-    const projectIndex = meshData.projectIndex ?? 0
-    if (softClosestWeights[projectIndex] > 0) continue
-
-    const score = clamp(projectAlignmentScores[projectIndex] ?? 0, 0, 1)
-    const weight = Math.exp((score - maxAlignmentScore) * CLOSEST_PROJECT_SOFT_SELECTION)
-    softClosestWeights[projectIndex] = weight
+  projectFocusWeights.fill(0)
+  for (let index = 0; index < projectAlignmentScores.length; index += 1) {
+    const alignment = clamp(projectAlignmentScores[index] ?? 0, 0, 1)
+    const weight = Math.exp((alignment - maxAlignmentScore) * PROJECT_FOCUS_SOFT_SELECTION)
+    projectFocusWeights[index] = weight
+    totalFocusWeight += weight
   }
 
   let visibleFragments = 0
@@ -1499,11 +1610,18 @@ const tick = (time: number) => {
 
     const meshData = mesh.userData as FragmentMeshData
     const projectIndex = meshData.projectIndex ?? 0
-    const alignment = clamp(projectAlignmentScores[projectIndex] ?? 0, 0, 1)
-    const angleToAxis = Math.acos(clamp(alignment, 0, 1))
-    const proximityVisual = proximityWithBuffer(angleToAxis, visualFalloffAngle, visualBufferAngle)
-    const easedOpacity = Math.pow(proximityVisual, FRAGMENT_OPACITY_ALIGNMENT_EXP)
-    const opacity = FRAGMENT_OPACITY_MIN + (FRAGMENT_OPACITY_MAX - FRAGMENT_OPACITY_MIN) * easedOpacity
+    const normalizedFocusWeight = totalFocusWeight > 0 ? projectFocusWeights[projectIndex] / totalFocusWeight : 0
+    const focusBlend = easeInOutCubic(
+      Math.pow(
+        clamp(
+          (normalizedFocusWeight - neutralFocusWeight) / Math.max(1 - neutralFocusWeight, 0.0001),
+          0,
+          1
+        ),
+        PROJECT_FOCUS_BLEND_EXP
+      )
+    )
+    const opacity = lerp(backgroundOpacity, FRAGMENT_OPACITY_MAX, fadeProgress * focusBlend)
     const maxFragments = meshData.maxFragments ?? 0
     if (meshData.drawCount !== maxFragments) {
       mesh.count = maxFragments
@@ -1581,6 +1699,7 @@ const tick = (time: number) => {
 }
 
 const handlePointerDown = (event: PointerEvent) => {
+  stopIntroAnimation()
   clearHoverPointer()
   pointerState.isDown = true
   pointerState.startX = event.clientX
@@ -1629,8 +1748,7 @@ const initScene = async () => {
 
   scene = new THREE.Scene()
   camera = new THREE.OrthographicCamera()
-  camera.position.set(0, 0, 220)
-  camera.lookAt(0, 0, 0)
+  setCameraPose(INTRO_START_CAMERA_Y, INTRO_START_CAMERA_Z, INTRO_START_ZOOM)
 
   renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -1755,6 +1873,14 @@ const initScene = async () => {
   debugInfo.value.visibleFragments = totalFragmentCount
   debugInfo.value.fps = 0
 
+  introState.active = true
+  introState.startTime = 0
+  introState.progress = 0
+  rotation.y = INTRO_START_YAW
+  targetRotation.y = INTRO_START_YAW
+  rotationX.value = INTRO_START_PITCH
+  targetRotationX.value = INTRO_START_PITCH
+
   resizeScene()
   pointerState.lastMoveAt = performance.now()
   webglReady.value = true
@@ -1765,6 +1891,9 @@ const cleanupScene = () => {
   disposed = true
   webglReady.value = false
   clearHoverPointer()
+  introState.active = false
+  introState.startTime = 0
+  introState.progress = 1
 
   if (animationFrame) {
     cancelAnimationFrame(animationFrame)

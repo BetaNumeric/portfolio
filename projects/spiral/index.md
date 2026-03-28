@@ -10,7 +10,7 @@ heroEmbedTitle: "Spiral Live Demo"
 heroEmbedDarkMode: auto
 heroEmbedLayoutPreset: minimal
 heroEmbedHeight: "66vh"
-heroEmbedMinHeight: "420px"
+heroEmbedMinHeight: "320px"
 heroEmbedMobileHeight: "56vh"
 heroEmbedMobileMinHeight: "340px"
 previewMedia: /projects/spiral/days.mp4
