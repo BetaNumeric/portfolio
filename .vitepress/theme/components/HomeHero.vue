@@ -4,6 +4,13 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, withBase } from 'vitepress'
 import * as THREE from 'three'
 import { data as projectsData } from '../projects.data.mjs'
+import {
+  buildProjectOrientations,
+  getNearestOrientationForProject,
+  getNearestSnapTarget,
+  type ProjectOrientation,
+} from './home-hero/orientation'
+import { computeProjectOpacities } from './home-hero/opacity'
 
 type FragmentResource = {
   buckets: FragmentBucketResource[]
@@ -52,7 +59,7 @@ const canvasHost = ref<HTMLDivElement | null>(null)
 const activeProjectIndex = ref(0)
 const isDragging = ref(false)
 const webglReady = ref(false)
-const showDebug = import.meta.env.MODE === 'development'
+const showDebug = ref(false)
 const debugInfo = ref({
   fps: 0,
   visibleFragments: 0,
@@ -88,9 +95,7 @@ let perfSampleFrameCount = 0
 let totalFragmentCount = 0
 
 const fragmentGroup = new THREE.Group()
-const projectAxes: THREE.Vector3[] = []
-const projectTargetYaws: number[] = []
-const projectTargetPitches: number[] = []
+const projectOrientations: ProjectOrientation[] = []
 const worldXAxis = new THREE.Vector3(1, 0, 0)
 const worldYAxis = new THREE.Vector3(0, 1, 0)
 
@@ -119,10 +124,8 @@ const tempSpinAxis = new THREE.Vector3()
 const tempSpinQuaternion = new THREE.Quaternion()
 const tempComposedQuaternion = new THREE.Quaternion()
 const tempSpinEuler = new THREE.Euler()
-const tempRotationEuler = new THREE.Euler()
 const tempLocalViewAxis = new THREE.Vector3()
 const projectAlignmentScores: number[] = []
-const projectFocusWeights: number[] = new Array(projects.length).fill(0)
 const hoverRaycaster = new THREE.Raycaster()
 const hoverInteractionPlane = new THREE.Plane()
 
@@ -172,9 +175,6 @@ const FRAGMENT_GRID_ROWS = 25
 const FRAGMENT_RENDER_BUCKETS = 6
 const FRAGMENT_GAP_MIN = 1
 const FRAGMENT_GAP_MAX = 1
-const FRAGMENT_FLOAT_AMPLITUDE = 7.2
-const FRAGMENT_FLOAT_SPEED = 0.36
-const FRAGMENT_SPIN_SCALE = 1
 const ROTATION_LERP = 0.1
 const ROTATION_DRAG_FACTOR = 0.001
 const ROTATION_X_LERP = 0.12
@@ -211,8 +211,6 @@ const HOVER_SPIN_MAX_SPEED = 0.045
 const HOVER_SPIN_RETURN_CAP_SCALE = 0.035
 const HOVER_SPIN_SETTLE_ANGLE = THREE.MathUtils.degToRad(1.2)
 const HOVER_SPIN_SETTLE_SPEED = 0.0025
-const HOVER_INFLUENCE_RADIUS = 18
-const HOVER_PUSH_DISTANCE = 7
 const HOVER_POINTER_LERP = 0.22
 const HOVER_STRENGTH_LERP = 0.18
 const HOVER_RETURN_MS = 260
@@ -223,12 +221,6 @@ const FRAGMENT_OPACITY_FADE_START = 0.56
 const FRAGMENT_OPACITY_FADE_END = 0.97
 const PROJECT_FOCUS_SOFT_SELECTION = 18
 const PROJECT_FOCUS_BLEND_EXP = 1.6
-const LOD_ALIGNMENT_BUFFER_AXIS_FRACTION = 0.4
-const LOD_ALIGNMENT_BUFFER_MIN_ANGLE = THREE.MathUtils.degToRad(8)
-const LOD_ALIGNMENT_BUFFER_MAX_ANGLE = THREE.MathUtils.degToRad(18)
-const FRAGMENT_LOD_MIN_FRACTION = 0.3
-const FRAGMENT_LOD_ALIGNMENT_EXP = 2.7
-const FRAGMENT_LOD_FALLOFF_ANGLE = THREE.MathUtils.degToRad(90)
 const SNAP_ANGLE_THRESHOLD = THREE.MathUtils.degToRad(20)
 const SNAP_PULL = 0.22
 const SNAP_SETTLE_THRESHOLD = THREE.MathUtils.degToRad(0.25)
@@ -281,26 +273,6 @@ const createSeededRandom = (seed: number) => {
   }
 }
 
-const createRandomUnitVector = (random: () => number, zBias = 1) => {
-  let x = randomBetween(random, -1, 1)
-  let y = randomBetween(random, -1, 1)
-  let z = randomBetween(random, -1, 1) * zBias
-  const length = Math.hypot(x, y, z) || 1
-  x /= length
-  y /= length
-  z /= length
-  return [x, y, z] as const
-}
-
-const proximityWithBuffer = (angle: number, falloffAngle: number, bufferAngle: number) => {
-  const safeFalloff = Math.max(falloffAngle, 0.0001)
-  const safeBuffer = clamp(bufferAngle, 0, Math.max(safeFalloff - 0.0001, 0))
-  if (angle <= safeBuffer) return 1
-
-  const normalized = clamp((angle - safeBuffer) / Math.max(safeFalloff - safeBuffer, 0.0001), 0, 1)
-  return 1 - normalized
-}
-
 const getTargetNavbarContentWidthPx = () => {
   if (typeof document === 'undefined') return NAVBAR_CONTENT_WIDTH_FALLBACK_PX
 
@@ -326,58 +298,6 @@ const getTargetNavbarContentWidthPx = () => {
   return NAVBAR_CONTENT_WIDTH_FALLBACK_PX
 }
 
-const normalizeAngle = (angle: number) => {
-  return Math.atan2(Math.sin(angle), Math.cos(angle))
-}
-
-const angleDelta = (from: number, to: number) => {
-  return normalizeAngle(to - from)
-}
-
-const getWrappedTurnTarget = (target: number, from: number) => {
-  return target + Math.round((from - target) / TAU) * TAU
-}
-
-const getProjectOrientationCandidates = (projectIndex: number, fromYaw: number, fromPitch: number) => {
-  const baseYaw = projectTargetYaws[projectIndex] ?? 0
-  const basePitch = projectTargetPitches[projectIndex] ?? 0
-
-  return [
-    {
-      yaw: getWrappedTurnTarget(baseYaw, fromYaw),
-      pitch: getWrappedTurnTarget(basePitch, fromPitch),
-    },
-    {
-      yaw: getWrappedTurnTarget(baseYaw + Math.PI, fromYaw),
-      pitch: getWrappedTurnTarget(Math.PI - basePitch, fromPitch),
-    },
-  ]
-}
-
-const pickNearestOrientationCandidate = (
-  candidates: Array<{ yaw: number; pitch: number }>,
-  fromYaw: number,
-  fromPitch: number
-) => {
-  let bestCandidate = candidates[0]
-  let bestDistance = Number.POSITIVE_INFINITY
-
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index]
-    const distance = Math.hypot(candidate.yaw - fromYaw, candidate.pitch - fromPitch)
-    if (distance < bestDistance) {
-      bestDistance = distance
-      bestCandidate = candidate
-    }
-  }
-
-  return bestCandidate
-}
-
-const getLocalViewDirectionForRotation = (yaw: number, pitch: number, target = new THREE.Vector3()) => {
-  tempQuaternion.setFromEuler(tempRotationEuler.set(pitch, yaw, 0))
-  return target.set(0, 0, 1).applyQuaternion(tempQuaternion.invert())
-}
 
 const setCameraPose = (positionY: number, positionZ: number, zoom: number) => {
   if (!camera) return
@@ -407,8 +327,9 @@ const updateIntroAnimation = (time: number) => {
     introState.startTime = time
   }
 
-  const finalYaw = projectTargetYaws[0] ?? 0
-  const finalPitch = projectTargetPitches[0] ?? 0
+  const firstProjectOrientation = projectOrientations[0]
+  const finalYaw = firstProjectOrientation?.yaw ?? 0
+  const finalPitch = firstProjectOrientation?.pitch ?? 0
   const elapsed = Math.max(time - introState.startTime - INTRO_DELAY_MS, 0)
   const progress = clamp(elapsed / INTRO_DURATION_MS, 0, 1)
   const eased = easeInOutCubic(progress)
@@ -434,54 +355,13 @@ const updateIntroAnimation = (time: number) => {
   return introState.active
 }
 
-const getNearestSnapTarget = (currentYaw: number, currentPitch: number) => {
-  if (!projectAxes.length) {
-    return {
-      index: 0,
-      yaw: currentYaw,
-      pitch: currentPitch,
-      yawDelta: 0,
-      pitchDelta: 0,
-      angle: Number.POSITIVE_INFINITY,
-    }
-  }
-
-  getLocalViewDirectionForRotation(currentYaw, currentPitch, tempViewDirection)
-
-  let nearestIndex = 0
-  let nearestAngle = Number.POSITIVE_INFINITY
-
-  for (let index = 0; index < projectAxes.length; index += 1) {
-    const angle = Math.acos(clamp(projectAxes[index].dot(tempViewDirection), -1, 1))
-    if (angle < nearestAngle) {
-      nearestAngle = angle
-      nearestIndex = index
-    }
-  }
-
-  const nearestOrientation = pickNearestOrientationCandidate(
-    getProjectOrientationCandidates(nearestIndex, currentYaw, currentPitch),
-    currentYaw,
-    currentPitch
-  )
-
-  return {
-    index: nearestIndex,
-    yaw: nearestOrientation.yaw,
-    pitch: nearestOrientation.pitch,
-    yawDelta: nearestOrientation.yaw - currentYaw,
-    pitchDelta: nearestOrientation.pitch - currentPitch,
-    angle: nearestAngle,
-  }
-}
-
 const goToProjectIndex = (projectIndex: number) => {
-  if (!projectAxes.length) return
+  if (!projectOrientations.length) return
   stopIntroAnimation()
 
-  const normalizedIndex = ((projectIndex % projectAxes.length) + projectAxes.length) % projectAxes.length
-  const targetOrientation = pickNearestOrientationCandidate(
-    getProjectOrientationCandidates(normalizedIndex, targetRotation.y, targetRotationX.value),
+  const normalizedIndex = ((projectIndex % projectOrientations.length) + projectOrientations.length) % projectOrientations.length
+  const targetOrientation = getNearestOrientationForProject(
+    projectOrientations[normalizedIndex],
     targetRotation.y,
     targetRotationX.value
   )
@@ -492,7 +372,7 @@ const goToProjectIndex = (projectIndex: number) => {
 }
 
 const rotateToRelativeProject = (direction: number) => {
-  if (!projectAxes.length) return
+  if (!projectOrientations.length) return
   const nextIndex = activeProjectIndex.value + direction
   goToProjectIndex(nextIndex)
 }
@@ -533,22 +413,15 @@ const loadImage = (url: string) => {
   })
 }
 
-const setupProjectAxes = () => {
-  projectAxes.length = 0
-  projectTargetYaws.length = 0
-  projectTargetPitches.length = 0
+const setupProjectOrientations = () => {
+  projectOrientations.length = 0
   projectAlignmentScores.length = projects.length
 
   if (!projects.length) return
 
-  const axisStep = TAU / projects.length
-  for (let index = 0; index < projects.length; index += 1) {
-    const angle = axisStep * index
-    const yaw = -angle
-    const pitch = Math.sin(angle) * SPHERE_LAYOUT_PITCH_AMPLITUDE
-    projectTargetYaws[index] = yaw
-    projectTargetPitches[index] = pitch
-    projectAxes[index] = getLocalViewDirectionForRotation(yaw, pitch, new THREE.Vector3()).clone()
+  const orientations = buildProjectOrientations(projects.length, SPHERE_LAYOUT_PITCH_AMPLITUDE)
+  for (let index = 0; index < orientations.length; index += 1) {
+    projectOrientations[index] = orientations[index]
     projectAlignmentScores[index] = 0
   }
 }
@@ -590,7 +463,7 @@ const buildTextureCanvas = (image: HTMLImageElement) => {
     textureHeight
   )
 
-  return { canvas, textureWidth, textureHeight }
+  return { canvas }
 }
 
 const isSpanAvailable = (
@@ -642,10 +515,6 @@ const pickFragmentSpan = (random: () => number, occupied: boolean[], startX: num
   return options[options.length - 1]
 }
 
-const createCornerCuts = (_random: () => number, _spanWidth: number, _spanHeight: number) => {
-  return [0, 0, 0, 0] as const
-}
-
 const shuffleIndices = (random: () => number, count: number) => {
   const indices = Array.from({ length: count }, (_, index) => index)
 
@@ -662,25 +531,14 @@ const shuffleIndices = (random: () => number, count: number) => {
 const buildFragmentBucket = (
   matrices: THREE.Matrix4[],
   instanceUvRect: number[],
-  motionDirs: number[],
-  spinAxes: number[],
-  motionPhases: number[],
-  spinAmounts: number[],
-  cornerCuts: number[],
   indices: number[]
 ) => {
   const geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
   const bucketMatrices: THREE.Matrix4[] = []
   const bucketUvRect: number[] = []
-  const bucketMotionDirs: number[] = []
-  const bucketSpinAxes: number[] = []
-  const bucketMotionPhases: number[] = []
-  const bucketSpinAmounts: number[] = []
-  const bucketCornerCuts: number[] = []
 
   for (let index = 0; index < indices.length; index += 1) {
     const fragmentIndex = indices[index]
-    const vec3Offset = fragmentIndex * 3
     const vec4Offset = fragmentIndex * 4
 
     bucketMatrices.push(matrices[fragmentIndex].clone())
@@ -690,32 +548,9 @@ const buildFragmentBucket = (
       instanceUvRect[vec4Offset + 2],
       instanceUvRect[vec4Offset + 3]
     )
-    bucketMotionDirs.push(
-      motionDirs[vec3Offset],
-      motionDirs[vec3Offset + 1],
-      motionDirs[vec3Offset + 2]
-    )
-    bucketSpinAxes.push(
-      spinAxes[vec3Offset],
-      spinAxes[vec3Offset + 1],
-      spinAxes[vec3Offset + 2]
-    )
-    bucketMotionPhases.push(motionPhases[fragmentIndex])
-    bucketSpinAmounts.push(spinAmounts[fragmentIndex])
-    bucketCornerCuts.push(
-      cornerCuts[vec4Offset],
-      cornerCuts[vec4Offset + 1],
-      cornerCuts[vec4Offset + 2],
-      cornerCuts[vec4Offset + 3]
-    )
   }
 
   geometry.setAttribute('instanceUvRect', new THREE.InstancedBufferAttribute(new Float32Array(bucketUvRect), 4))
-  geometry.setAttribute('motionDir', new THREE.InstancedBufferAttribute(new Float32Array(bucketMotionDirs), 3))
-  geometry.setAttribute('spinAxis', new THREE.InstancedBufferAttribute(new Float32Array(bucketSpinAxes), 3))
-  geometry.setAttribute('motionPhase', new THREE.InstancedBufferAttribute(new Float32Array(bucketMotionPhases), 1))
-  geometry.setAttribute('spinAmount', new THREE.InstancedBufferAttribute(new Float32Array(bucketSpinAmounts), 1))
-  geometry.setAttribute('cornerCuts', new THREE.InstancedBufferAttribute(new Float32Array(bucketCornerCuts), 4))
   geometry.computeBoundingSphere()
 
   return {
@@ -741,7 +576,7 @@ const buildFragmentResource = async (projectIndex: number) => {
   const textureCanvas = buildTextureCanvas(image)
   if (!textureCanvas) return null
 
-  const { canvas, textureWidth, textureHeight } = textureCanvas
+  const { canvas } = textureCanvas
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.ClampToEdgeWrapping
@@ -753,7 +588,12 @@ const buildFragmentResource = async (projectIndex: number) => {
   const random = createSeededRandom(hashString(`${project.title}:${project.link}:${projectIndex}`))
   const occupied = new Array(FRAGMENT_GRID_COLUMNS * FRAGMENT_GRID_ROWS).fill(false)
   const geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
-  const axis = projectAxes[projectIndex]
+  const axis = projectOrientations[projectIndex]?.axis
+  if (!axis) {
+    geometry.dispose()
+    texture.dispose()
+    return null
+  }
   const upReference = Math.abs(axis.dot(worldYAxis)) > 0.94 ? worldXAxis : worldYAxis
   const planeUp = tempAxisY
     .copy(upReference)
@@ -768,11 +608,6 @@ const buildFragmentResource = async (projectIndex: number) => {
 
   const matrices: THREE.Matrix4[] = []
   const instanceUvRect: number[] = []
-  const motionDirs: number[] = []
-  const spinAxes: number[] = []
-  const motionPhases: number[] = []
-  const spinAmounts: number[] = []
-  const cornerCuts: number[] = []
 
   tempBasis.makeBasis(planeAxis, planeUp, axis)
   tempQuaternion.setFromRotationMatrix(tempBasis)
@@ -803,18 +638,6 @@ const buildFragmentResource = async (projectIndex: number) => {
       const vOffset = 1 - (y + span.height) / FRAGMENT_GRID_ROWS + insetV
       const vScale = Math.max(span.height / FRAGMENT_GRID_ROWS - insetV * 2, 0.0001)
       instanceUvRect.push(uOffset, vOffset, uScale, vScale)
-
-      const motionDir = createRandomUnitVector(random, 1.35)
-      motionDirs.push(motionDir[0], motionDir[1], motionDir[2])
-
-      const spinAxis = createRandomUnitVector(random, 1.6)
-      spinAxes.push(spinAxis[0], spinAxis[1], spinAxis[2])
-
-      motionPhases.push(random() * TAU)
-      spinAmounts.push(randomBetween(random, THREE.MathUtils.degToRad(10), THREE.MathUtils.degToRad(42)))
-
-      const cuts = createCornerCuts(random, span.width, span.height)
-      cornerCuts.push(cuts[0], cuts[1], cuts[2], cuts[3])
     }
   }
 
@@ -837,16 +660,7 @@ const buildFragmentResource = async (projectIndex: number) => {
   const buckets = bucketIndices
     .filter((indices) => indices.length > 0)
     .map((indices) => {
-      return buildFragmentBucket(
-        matrices,
-        instanceUvRect,
-        motionDirs,
-        spinAxes,
-        motionPhases,
-        spinAmounts,
-        cornerCuts,
-        indices
-      )
+      return buildFragmentBucket(matrices, instanceUvRect, indices)
     })
 
   return {
@@ -857,7 +671,7 @@ const buildFragmentResource = async (projectIndex: number) => {
 }
 
 const buildFragmentResources = async () => {
-  setupProjectAxes()
+  setupProjectOrientations()
   return Promise.all(projects.map((_, index) => buildFragmentResource(index)))
 }
 
@@ -1223,77 +1037,17 @@ const updateFragmentHoverPhysics = () => {
 
 const fragmentVertexShader = `
 attribute vec4 instanceUvRect;
-attribute vec3 motionDir;
-attribute vec3 spinAxis;
-attribute float motionPhase;
-attribute float spinAmount;
-attribute vec4 cornerCuts;
-
-uniform float uTime;
-uniform float uMotion;
-uniform float uFloatAmplitude;
-uniform float uFloatSpeed;
-uniform float uSpinScale;
-uniform vec2 uHoverCursorView;
-uniform float uHoverRadius;
-uniform float uHoverPush;
-uniform float uHoverStrength;
-uniform float uHoverProjectMix;
 
 varying vec2 vMapUv;
-varying vec2 vPieceUv;
-varying vec4 vCornerCuts;
-
-mat3 rotation3d(vec3 axis, float angle) {
-  axis = normalize(axis);
-  float s = sin(angle);
-  float c = cos(angle);
-  float oc = 1.0 - c;
-
-  return mat3(
-    oc * axis.x * axis.x + c,
-    oc * axis.x * axis.y - axis.z * s,
-    oc * axis.z * axis.x + axis.y * s,
-    oc * axis.x * axis.y + axis.z * s,
-    oc * axis.y * axis.y + c,
-    oc * axis.y * axis.z - axis.x * s,
-    oc * axis.z * axis.x - axis.y * s,
-    oc * axis.y * axis.z + axis.x * s,
-    oc * axis.z * axis.z + c
-  );
-}
 
 void main() {
-  vec3 transformed = position;
-  float motionTime = uTime * uFloatSpeed + motionPhase;
-  float waveA = sin(motionTime);
-  float waveB = cos((motionTime * 1.63) + (motionPhase * 0.57));
-  vec3 drift = motionDir * (waveA + (waveB * 0.5)) * uFloatAmplitude * uMotion;
-  float spinAngle = spinAmount * (0.58 + 0.42 * sin((motionTime * 0.81) + motionPhase)) * uMotion * uSpinScale;
-  transformed = rotation3d(spinAxis, spinAngle) * transformed;
-  transformed += drift;
-
-  vec4 worldPosition = vec4(transformed, 1.0);
+  vec4 worldPosition = vec4(position, 1.0);
   #ifdef USE_INSTANCING
     worldPosition = instanceMatrix * worldPosition;
   #endif
 
-  vec4 mvPosition = modelViewMatrix * worldPosition;
-  vec2 hoverOffset = mvPosition.xy - uHoverCursorView;
-  float hoverDistance = length(hoverOffset);
-  float hoverInfluence =
-    uHoverProjectMix *
-    uHoverStrength *
-    (1.0 - smoothstep(uHoverRadius * 0.2, uHoverRadius, hoverDistance));
-  vec2 hoverDirection = hoverDistance > 0.0001
-    ? hoverOffset / hoverDistance
-    : normalize(motionDir.xy + vec2(0.0001, 0.0));
-  mvPosition.xy += hoverDirection * hoverInfluence * uHoverPush;
-  gl_Position = projectionMatrix * mvPosition;
-
+  gl_Position = projectionMatrix * modelViewMatrix * worldPosition;
   vMapUv = uv * instanceUvRect.zw + instanceUvRect.xy;
-  vPieceUv = uv;
-  vCornerCuts = cornerCuts;
 }
 `
 
@@ -1302,29 +1056,10 @@ uniform sampler2D uMap;
 uniform float uOpacity;
 
 varying vec2 vMapUv;
-varying vec2 vPieceUv;
-varying vec4 vCornerCuts;
-
-float getPieceMask() {
-  float feather = 0.028;
-  float topLeft = vCornerCuts.x > 0.001
-    ? smoothstep(vCornerCuts.x - feather, vCornerCuts.x + feather, vPieceUv.x + (1.0 - vPieceUv.y))
-    : 1.0;
-  float topRight = vCornerCuts.y > 0.001
-    ? smoothstep(vCornerCuts.y - feather, vCornerCuts.y + feather, (1.0 - vPieceUv.x) + (1.0 - vPieceUv.y))
-    : 1.0;
-  float bottomRight = vCornerCuts.z > 0.001
-    ? smoothstep(vCornerCuts.z - feather, vCornerCuts.z + feather, (1.0 - vPieceUv.x) + vPieceUv.y)
-    : 1.0;
-  float bottomLeft = vCornerCuts.w > 0.001
-    ? smoothstep(vCornerCuts.w - feather, vCornerCuts.w + feather, vPieceUv.x + vPieceUv.y)
-    : 1.0;
-  return topLeft * topRight * bottomRight * bottomLeft;
-}
 
 vec4 sampleFragmentTexel() {
   vec4 texel = texture2D(uMap, vMapUv);
-  texel.a *= getPieceMask() * uOpacity;
+  texel.a *= uOpacity;
   return texel;
 }
 `
@@ -1362,16 +1097,6 @@ void main() {
     uniforms: {
       uMap: { value: texture },
       uOpacity: { value: FRAGMENT_OPACITY_MIN },
-      uTime: { value: 0 },
-      uMotion: { value: 0 },
-      uFloatAmplitude: { value: FRAGMENT_FLOAT_AMPLITUDE },
-      uFloatSpeed: { value: FRAGMENT_FLOAT_SPEED },
-      uSpinScale: { value: FRAGMENT_SPIN_SCALE },
-      uHoverCursorView: { value: new THREE.Vector2() },
-      uHoverRadius: { value: HOVER_INFLUENCE_RADIUS },
-      uHoverPush: { value: HOVER_PUSH_DISTANCE },
-      uHoverStrength: { value: 0 },
-      uHoverProjectMix: { value: 1 },
     },
     vertexShader: fragmentVertexShader,
     fragmentShader,
@@ -1462,7 +1187,7 @@ const initCompositeResources = () => {
 }
 
 const updateActiveProject = () => {
-  if (!projectAxes.length || !camera) return 0
+  if (!projectOrientations.length || !camera) return 0
 
   tempQuaternion.copy(fragmentGroup.quaternion).invert()
   camera.getWorldDirection(tempCameraDirection)
@@ -1471,8 +1196,8 @@ const updateActiveProject = () => {
   let bestIndex = 0
   let bestScore = -1
 
-  for (let index = 0; index < projectAxes.length; index += 1) {
-    const score = projectAxes[index].dot(tempViewDirection)
+  for (let index = 0; index < projectOrientations.length; index += 1) {
+    const score = projectOrientations[index].axis.dot(tempViewDirection)
     projectAlignmentScores[index] = score
     if (score > bestScore) {
       bestScore = score
@@ -1556,10 +1281,10 @@ const tick = (time: number) => {
   if (
     !introActive &&
     !pointerState.isDown &&
-    projectAxes.length &&
+    projectOrientations.length &&
     time - pointerState.lastMoveAt > DRAG_RELEASE_SNAP_DELAY_MS
   ) {
-    const snap = getNearestSnapTarget(targetRotation.y, targetRotationX.value)
+    const snap = getNearestSnapTarget(projectOrientations, targetRotation.y, targetRotationX.value)
     if (snap.angle < SNAP_ANGLE_THRESHOLD) {
       targetRotation.y += snap.yawDelta * SNAP_PULL
       targetRotationX.value += snap.pitchDelta * SNAP_PULL
@@ -1580,28 +1305,14 @@ const tick = (time: number) => {
   updatePerformanceDebug(time)
   updateFragmentHoverPhysics()
 
-  const maxAlignmentScore = projectAlignmentScores.reduce((best, value) => {
-    return Math.max(best, clamp(value ?? 0, 0, 1))
-  }, 0)
-  const fadeProgress = easeInOutCubic(
-    clamp(
-      (maxAlignmentScore - FRAGMENT_OPACITY_FADE_START) /
-        Math.max(FRAGMENT_OPACITY_FADE_END - FRAGMENT_OPACITY_FADE_START, 0.0001),
-      0,
-      1
-    )
-  )
-  const backgroundOpacity = lerp(FRAGMENT_OPACITY_MAX, FRAGMENT_OPACITY_MIN, fadeProgress)
-  const neutralFocusWeight = 1 / Math.max(projects.length, 1)
-  let totalFocusWeight = 0
-
-  projectFocusWeights.fill(0)
-  for (let index = 0; index < projectAlignmentScores.length; index += 1) {
-    const alignment = clamp(projectAlignmentScores[index] ?? 0, 0, 1)
-    const weight = Math.exp((alignment - maxAlignmentScore) * PROJECT_FOCUS_SOFT_SELECTION)
-    projectFocusWeights[index] = weight
-    totalFocusWeight += weight
-  }
+  const projectOpacities = computeProjectOpacities(projectAlignmentScores, {
+    minOpacity: FRAGMENT_OPACITY_MIN,
+    maxOpacity: FRAGMENT_OPACITY_MAX,
+    fadeStart: FRAGMENT_OPACITY_FADE_START,
+    fadeEnd: FRAGMENT_OPACITY_FADE_END,
+    focusSoftSelection: PROJECT_FOCUS_SOFT_SELECTION,
+    focusBlendExponent: PROJECT_FOCUS_BLEND_EXP,
+  })
 
   let visibleFragments = 0
   for (let index = 0; index < fragmentMeshes.length; index += 1) {
@@ -1610,18 +1321,7 @@ const tick = (time: number) => {
 
     const meshData = mesh.userData as FragmentMeshData
     const projectIndex = meshData.projectIndex ?? 0
-    const normalizedFocusWeight = totalFocusWeight > 0 ? projectFocusWeights[projectIndex] / totalFocusWeight : 0
-    const focusBlend = easeInOutCubic(
-      Math.pow(
-        clamp(
-          (normalizedFocusWeight - neutralFocusWeight) / Math.max(1 - neutralFocusWeight, 0.0001),
-          0,
-          1
-        ),
-        PROJECT_FOCUS_BLEND_EXP
-      )
-    )
-    const opacity = lerp(backgroundOpacity, FRAGMENT_OPACITY_MAX, fadeProgress * focusBlend)
+    const opacity = projectOpacities[projectIndex] ?? FRAGMENT_OPACITY_MAX
     const maxFragments = meshData.maxFragments ?? 0
     if (meshData.drawCount !== maxFragments) {
       mesh.count = maxFragments
@@ -1630,20 +1330,13 @@ const tick = (time: number) => {
 
     const accumMaterial = fragmentAccumMaterials[index]
     const revealMaterial = fragmentRevealMaterials[index]
-    const materialTime = time * 0.001
 
     if (accumMaterial) {
       accumMaterial.uniforms.uOpacity.value = opacity
-      accumMaterial.uniforms.uTime.value = materialTime
-      accumMaterial.uniforms.uMotion.value = 0
-      accumMaterial.uniforms.uHoverStrength.value = 0
     }
 
     if (revealMaterial) {
       revealMaterial.uniforms.uOpacity.value = opacity
-      revealMaterial.uniforms.uTime.value = materialTime
-      revealMaterial.uniforms.uMotion.value = 0
-      revealMaterial.uniforms.uHoverStrength.value = 0
     }
 
     visibleFragments += mesh.count
@@ -1741,6 +1434,24 @@ const handlePointerUp = (event: PointerEvent) => {
   if (canvasHost.value?.hasPointerCapture(event.pointerId)) {
     canvasHost.value.releasePointerCapture(event.pointerId)
   }
+}
+
+const handleDebugShortcut = (event: KeyboardEvent) => {
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== 'd') return
+
+  const target = event.target as HTMLElement | null
+  if (
+    target &&
+    (target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable)
+  ) {
+    return
+  }
+
+  event.preventDefault()
+  showDebug.value = !showDebug.value
 }
 
 const initScene = async () => {
@@ -1976,6 +1687,7 @@ const cleanupScene = () => {
 onMounted(async () => {
   if (!canvasHost.value || !projects.length) return
 
+  window.addEventListener('keydown', handleDebugShortcut)
   canvasHost.value.addEventListener('pointerdown', handlePointerDown)
   canvasHost.value.addEventListener('pointermove', handlePointerMove)
   canvasHost.value.addEventListener('pointerup', handlePointerUp)
@@ -1995,6 +1707,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleDebugShortcut)
   cleanupScene()
 })
 </script>
