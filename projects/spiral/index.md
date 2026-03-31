@@ -15,7 +15,7 @@ heroEmbedMobileHeight: "56vh"
 heroEmbedMobileMinHeight: "340px"
 previewMedia: /projects/spiral/days.mp4
 ---
-<ProjectIntro image="/projects/spiral/week.mp4" externalLink="https://betanumeric.github.io/spiral/">
+<ProjectIntro image="/projects/spiral/week_spin.mp4" externalLink="https://betanumeric.github.io/spiral/">
 
 **DESCRIPTION**
 
@@ -89,7 +89,6 @@ Another option is to change the color palette used to generate the random defaul
 
 At the bottom, there is the option to reset the settings to the default.
 
-
 ### Developer Mode and Experimental Features
 
 More experimental settings are hidden, but can be accessed in the developer mode.
@@ -97,7 +96,6 @@ More experimental settings are hidden, but can be accessed in the developer mode
 For fine-grained control of the calendar's looks, the dev setting includes a group of advanced visual options. Here you can toggle additional guide lines (such as noon or 6 am / 6 pm markers), show or hide segment borders, and adjust how text is rendered inside the spiral (for example, showing year and month names only on the first segment of each period). You can also fine-tune how hours, days, months, and years are labeled, choosing between different formats and levels of detail.
 
 Developer Mode also includes a random events generator used for testing. It is located at the bottom of the “Add Events” panel. With it, you can quickly populate the spiral with synthetic events spread across multiple days, using varying durations, start times, and calendars. This makes it easy to see how overlapping events stack, how different color palettes behave, and how the event list and interactions perform under heavier loads.
-
 
 ### Installation and Standalone App Support
 
