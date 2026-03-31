@@ -961,6 +961,13 @@ a {
   align-items: start;
 }
 
+@media (max-width: 768px) {
+  .project-intro-section {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
 .project-main-media {
   position: relative;
 }
