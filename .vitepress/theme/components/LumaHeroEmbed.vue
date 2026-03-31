@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useData } from 'vitepress'
+
+const { isDark } = useData()
 
 const props = withDefaults(
   defineProps<{
     src: string
     title?: string
-    darkMode?: boolean | null
+    darkMode?: boolean | string | null
     layoutPreset?: string | null
     height?: string | null
     minHeight?: string | null
@@ -31,8 +34,12 @@ const embedSrc = computed(() => {
   try {
     const url = new URL(cleanedSrc)
 
-    if (typeof props.darkMode === 'boolean') {
+    if (props.darkMode === 'auto') {
+      url.searchParams.set('theme', isDark.value ? 'dark' : 'light')
+    } else if (typeof props.darkMode === 'boolean') {
       url.searchParams.set('theme', props.darkMode ? 'dark' : 'light')
+    } else if (props.darkMode === 'true' || props.darkMode === 'false') {
+      url.searchParams.set('theme', props.darkMode === 'true' ? 'dark' : 'light')
     }
 
     if (props.layoutPreset) {
