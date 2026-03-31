@@ -3,6 +3,7 @@ layout: project
 title: Earth Trails
 year: 2020
 description: "A project to show Earth's movement as a planet through space from everyday perspectives."
+tags: [Video, Machine]
 heroImage: /projects/earth-trails/header.jpg
 previewMedia: /projects/earth-trails/earth_trails_machine.mp4
 gallery:

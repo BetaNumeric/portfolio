@@ -3,6 +3,7 @@ layout: project
 title: Time Scale
 year: 2022
 description: "A visualization of the past, the future and the now to give a sense of scale."
+tags: [Interactive]
 heroImage: /projects/time-scale/galactic_year.jpg
 heroComponent: TimeScaleEmbed
 previewMedia: /projects/time-scale/zoom.mp4

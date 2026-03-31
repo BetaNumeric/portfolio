@@ -2,6 +2,7 @@
 layout: project
 title: 3D Project Scans 
 description: "A collection of experiments with ways of turning photos into 3D models"
+tags: [Interactive]
 heroImage: /projects/3d_photo_scan/tractor_scan_3.jpg
 heroComponent: LumaHeroEmbed
 heroEmbedUrl: "https://lumalabs.ai/embed/2009c83d-0015-419c-8ee2-580755f92704?mode=sparkles&background=%23181818&color=%23FFFFFF&showTitle=false&loadBg=true&logoPosition=bottom-left&infoPosition=bottom-right&showMenu=false"
@@ -83,4 +84,3 @@ One can also use a polarization filter to get rid of reflections on shiny surfac
 <ModelEmbed src="https://lumalabs.ai/embed/ec6035d5-cf26-49b8-b7db-0bb66e47f95e?mode=video&background=%23181818&color=%23FFFFFF&showTitle=false&loadBg=true&logoPosition=bottom-left&infoPosition=bottom-right&cinematicVideo=https%3A%2F%2Fcdn-luma.com%2Frenders%2F5f502452c940f3819fb714804700eff090566e25736482c6e54b6b502987ef75%2FTractor_video.mp4&showMenu=true" />
 
 </ProjectAccordion>
-

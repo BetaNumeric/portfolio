@@ -3,6 +3,7 @@ layout: project
 title: Spiral
 year: 2025
 description: "A spiral time-visualization application inspired by Earth’s motion"
+tags: [Interactive]
 heroImage: /projects/spiral/spiral_cover.png
 heroComponent: LumaHeroEmbed
 heroEmbedUrl: "https://betanumeric.github.io/spiral/"

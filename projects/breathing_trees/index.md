@@ -3,6 +3,7 @@ layout: project
 title: Breathing Trees
 year: 2021
 description: "A music video built from visuals created for a provided contemporary music track."
+tags: [Video]
 heroImage: /projects/breathing_trees/header.jpg
 previewMedia: /projects/breathing_trees/breathing_trees.gif
 gallery:

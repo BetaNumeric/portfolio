@@ -3,6 +3,7 @@ layout: project
 title: Auscultation of Water
 year: 2019
 description: "An installation that lets you listen to a heartbeat generated with water droplets."
+tags: [Video, Machine]
 heroImage: /projects/auscultation_of_water/flasks_web.jpg
 previewMedia: /projects/auscultation_of_water/auscultation_of_water_drops.gif
 

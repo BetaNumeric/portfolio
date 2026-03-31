@@ -3,6 +3,7 @@ layout: project
 title: Seeing Water
 year: 2020
 description: "An installation exploring the visual nature of water and its relationship to the eye."
+tags: [Video, Machine]
 heroImage: /projects/seeing-water/header.jpg
 previewMedia: /projects/seeing-water/seeing_water.mp4
 gallery:
@@ -131,6 +132,5 @@ In Processing, I wrote a program that lets me control the position of the image,
 For the exhibition I used an extra display connected to the camera, to present the images it just took.
 
 </ProjectAccordion>
-
 
 

@@ -52,6 +52,46 @@ const footerProjects = computed(() => selectRelatedProjects('footer'))
 const isHome = computed(() => frontmatter.value.layout === 'home' || frontmatter.value.home)
 const isProject = computed(() => frontmatter.value.layout === 'project')
 const projects = computed(() => frontmatter.value.projects ?? projectsData)
+type ProjectCard = (typeof projectsData)[number] & {
+  cta?: string
+  images?: string[]
+  tags?: string[]
+}
+
+const normalizeProjectTags = (tags: unknown): string[] => {
+  if (!Array.isArray(tags)) return []
+  return tags
+    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .filter((tag): tag is string => tag.length > 0)
+}
+
+const activeProjectTag = ref('all')
+
+const availableProjectTags = computed(() => {
+  const tagCounts = new Map<string, number>()
+
+  ;(projects.value as ProjectCard[]).forEach((project) => {
+    normalizeProjectTags(project.tags).forEach((tag) => {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+    })
+  })
+
+  return [...tagCounts.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1]
+      return a[0].localeCompare(b[0])
+    })
+    .map(([tag]) => tag)
+})
+
+const filteredProjects = computed(() => {
+  if (activeProjectTag.value === 'all') return projects.value as ProjectCard[]
+
+  return (projects.value as ProjectCard[]).filter((project) => {
+    return normalizeProjectTags(project.tags).includes(activeProjectTag.value)
+  })
+})
+
 const defaultHomeGridLayout = computed<'single' | 'two'>(() => {
   const requested = Number(frontmatter.value.projectGridColumns ?? 1)
   return requested === 2 ? 'two' : 'single'
@@ -527,6 +567,18 @@ watch(
   }
 )
 
+watch(availableProjectTags, (tags) => {
+  if (activeProjectTag.value !== 'all' && !tags.includes(activeProjectTag.value)) {
+    activeProjectTag.value = 'all'
+  }
+})
+
+watch(activeProjectTag, async () => {
+  if (!isHome.value) return
+  await nextTick()
+  syncProjectCardsWithViewport()
+})
+
 const handleEnter = (event: MouseEvent) => {
   const card = event.currentTarget as HTMLElement | null
   const video = card?.querySelector('video') as HTMLVideoElement | null
@@ -601,6 +653,21 @@ const handleLeave = (event: MouseEvent) => {
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
         <div class="project-grid-controls" v-if="projects.length > 1">
+          <label v-if="availableProjectTags.length" class="project-filter" for="project-tag-filter">
+            <span class="project-filter__label project-filter__label--sr-only">Filter projects by tag</span>
+            <select
+              id="project-tag-filter"
+              v-model="activeProjectTag"
+              class="project-filter__select"
+              aria-label="Filter projects by tag"
+            >
+              <option value="all">All Projects</option>
+              <option v-for="tag in availableProjectTags" :key="tag" :value="tag">
+                {{ tag }}
+              </option>
+            </select>
+          </label>
+
           <div class="layout-toggle" role="group" aria-label="Project card layout">
             <button
               class="layout-toggle__btn"
@@ -625,7 +692,7 @@ const handleLeave = (event: MouseEvent) => {
 
         <section id="projects" :class="['project-grid', { 'project-grid--two-col': isHomeTwoColumnCards }]">
           <a
-            v-for="project in projects"
+            v-for="project in filteredProjects"
             :key="project.title"
             :href="withBase(project.link)"
             :class="['project-card', { 'project-card--stacked': isHomeTwoColumnCards }]"
@@ -677,6 +744,9 @@ const handleLeave = (event: MouseEvent) => {
             </div>
           </a>
         </section>
+        <p v-if="!filteredProjects.length" class="project-grid-empty">
+          No projects match the selected tag.
+        </p>
       </template>
 
       <template v-else-if="isProject">

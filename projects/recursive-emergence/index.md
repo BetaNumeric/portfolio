@@ -3,6 +3,7 @@ layout: project
 title: Recursive Emergence
 year: 2023
 description: "An exploration of fractal structures emerging from visual feedback loops between a camera and projectors."
+tags: [Video, Machine]
 heroImage: /projects/recursive-emergence/header.jpg
 previewMedia: /projects/recursive-emergence/gallery/recursive_emergence_8.mp4
 gallery:

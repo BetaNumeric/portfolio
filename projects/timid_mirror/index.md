@@ -3,6 +3,7 @@ layout: project
 title: Timid Mirror
 year: 2020
 description: "This machine is a swivel mirror that can detect faces and tilt and rotate away to avoid eye-contact with them."
+tags: [Machine, Video]
 heroImage: /projects/timid_mirror/timid_mirror_front_web.jpg
 previewMedia: /projects/timid_mirror/timid_mirror.mp4
 
