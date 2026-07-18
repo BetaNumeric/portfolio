@@ -6,22 +6,28 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 // --- CONFIGURATION ---
 const MODEL_URL = withBase('/model/me.glb')
-const DESKTOP_PARTICLE_COUNT = 80000
-const MOBILE_PARTICLE_COUNT = 40000
-const REDUCED_MOTION_PARTICLE_COUNT = 20000
+const DESKTOP_PARTICLE_COUNT = 100000
+const MOBILE_PARTICLE_COUNT = 60000
+const REDUCED_MOTION_PARTICLE_COUNT = 30000
+const POINT_DENSITY_REFERENCE = 1000000
+const MAX_POINT_SIZE_SCALE = 5
 
 // --- SHADERS ---
 const vertexShader = `
     uniform float uPixelRatio;
+    uniform float uPointScale;
     uniform vec3 uMouse;
-    attribute float aRandom;
+    attribute float aPointSize;
     varying vec2 vUv;
     void main() {
         vUv = uv; 
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
-        float size = 1.0 + aRandom * 3.5;
-        gl_PointSize = (size * uPixelRatio) / -mvPosition.z;
+        // Keep most particles near the middle of the range, with occasional
+        // smaller and larger points for a less uniform surface.
+        float sizeVariation = mix(0.6, 1.6, pow(aPointSize, 1.7));
+        float size = 2.5 * sizeVariation;
+        gl_PointSize = (size * uPixelRatio * uPointScale) / -mvPosition.z;
     }
 `
 
@@ -105,8 +111,19 @@ onMounted(() => {
     const customUniforms = {
         uMouse: { value: new THREE.Vector3(0, 0, 0) },
         uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, maxPixelRatio) },
+        uPointScale: {
+            value: Math.min(MAX_POINT_SIZE_SCALE, Math.sqrt(POINT_DENSITY_REFERENCE / particleCount))
+        },
         uTexture: { value: null as THREE.Texture | null },
         uUseTexture: { value: false }
+    }
+
+    const updatePointScale = (visibleCount: number) => {
+        const safeCount = Math.max(visibleCount, 1)
+        customUniforms.uPointScale.value = Math.min(
+            MAX_POINT_SIZE_SCALE,
+            Math.max(1, Math.sqrt(POINT_DENSITY_REFERENCE / safeCount))
+        )
     }
 
     // --- PHYSICS DATA & OPTIMIZATION ---
@@ -307,8 +324,12 @@ onMounted(() => {
                 currentPositions = (geo.attributes.position as THREE.BufferAttribute).array as Float32Array
                 velocities = new Float32Array(bufferCount * 3)
                 particleRandoms = new Float32Array(bufferCount)
-                for(let i=0; i<bufferCount; i++) particleRandoms[i] = Math.random()
-                geo.setAttribute('aRandom', new THREE.BufferAttribute(particleRandoms, 1))
+                const pointSizeRandoms = new Float32Array(bufferCount)
+                for(let i=0; i<bufferCount; i++) {
+                    particleRandoms[i] = Math.random()
+                    pointSizeRandoms[i] = Math.random()
+                }
+                geo.setAttribute('aPointSize', new THREE.BufferAttribute(pointSizeRandoms, 1))
 
                 if (texture) {
                     customUniforms.uTexture.value = texture
@@ -456,17 +477,18 @@ onMounted(() => {
             frameCount = 0
             lastFpsCheck = currentTime
             
-            if (fps < 40) {
+            if (fps < 25) {
                 lowFpsStreak++
                 highFpsStreak = 0
                 if (lowFpsStreak >= 2 && activeParticleCount > 10000 && particles) {
                     const newCount = Math.floor(activeParticleCount * 0.8)
                     activeParticleCount = newCount
                     particles.geometry.setDrawRange(0, activeParticleCount)
+                    updatePointScale(activeParticleCount)
                     lowFpsStreak = 0 
                 }
             } 
-            else if (fps > 58) {
+            else if (fps > 35) {
                 highFpsStreak++
                 lowFpsStreak = 0
                 if (highFpsStreak >= 4 && activeParticleCount < bufferCount && particles) {
@@ -474,6 +496,7 @@ onMounted(() => {
                     const newCount = Math.min(bufferCount, Math.floor(activeParticleCount * 1.1))
                     activeParticleCount = newCount
                     particles.geometry.setDrawRange(0, activeParticleCount)
+                    updatePointScale(activeParticleCount)
                     
                     // FIX: Reset newly awakened particles so they don't glitch/jump
                     for (let i = prevCount; i < newCount; i++) {
