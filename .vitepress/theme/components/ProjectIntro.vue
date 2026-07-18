@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { withBase } from 'vitepress'
 
 const props = defineProps<{
@@ -13,8 +13,18 @@ const props = defineProps<{
 
 const showIndicator = ref(false)
 const isLightboxOpen = ref(false)
+const prefersReducedMotion = ref(false)
+const mediaTrigger = ref<HTMLElement | null>(null)
+const closeButton = ref<HTMLButtonElement | null>(null)
 const videoExtensionPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
 let previousBodyOverflow = ''
+
+const isClickable = computed(() => Boolean(props.fullVideo || props.externalLink))
+const mediaActionLabel = computed(() => {
+  if (props.externalLink) return 'Open project link in a new tab'
+  if (props.fullVideo) return 'Play project video'
+  return undefined
+})
 
 const isVideoFile = (source?: string) => {
   if (!source) return false
@@ -65,17 +75,34 @@ const openLightbox = () => {
     isLightboxOpen.value = true
     previousBodyOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleLightboxKeydown)
+    nextTick(() => closeButton.value?.focus())
   }
 }
 
-const closeLightbox = () => {
+const closeLightbox = (restoreFocus = true) => {
+  if (!isLightboxOpen.value) return
   isLightboxOpen.value = false
   document.body.style.overflow = previousBodyOverflow
   previousBodyOverflow = ''
+  window.removeEventListener('keydown', handleLightboxKeydown)
+  if (restoreFocus) {
+    nextTick(() => mediaTrigger.value?.focus())
+  }
 }
 
-onUnmounted(() => {
+const handleLightboxKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
   closeLightbox()
+}
+
+onMounted(() => {
+  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+})
+
+onUnmounted(() => {
+  closeLightbox(false)
 })
 
 const handleMouseEnter = () => {
@@ -89,9 +116,14 @@ const handleMouseLeave = () => {
 
 <template>
   <div class="project-intro-section">
-    <div 
+    <component
+      :is="isClickable ? 'button' : 'div'"
+      ref="mediaTrigger"
       class="project-main-media" 
-      :class="{ 'is-clickable': !!(fullVideo || externalLink) }"
+      :class="{ 'is-clickable': isClickable }"
+      :type="isClickable ? 'button' : undefined"
+      :aria-label="mediaActionLabel"
+      :aria-haspopup="fullVideo ? 'dialog' : undefined"
       @mouseenter="handleMouseEnter" 
       @mouseleave="handleMouseLeave"
       @click="openLightbox"
@@ -100,7 +132,7 @@ const handleMouseLeave = () => {
         v-if="mediaVideo"
         :src="withBase(mediaVideo)"
         :poster="mediaPoster ? withBase(mediaPoster) : undefined"
-        autoplay
+        :autoplay="!prefersReducedMotion"
         loop
         muted
         playsinline
@@ -112,7 +144,7 @@ const handleMouseLeave = () => {
           <span class="play-overlay__icon"></span>
         </div>
       </div>
-    </div>
+    </component>
     
     <div class="project-intro-text">
        <div class="description-block">
@@ -121,12 +153,21 @@ const handleMouseLeave = () => {
     </div>
 
     <Teleport to="body">
-      <div v-if="isLightboxOpen" class="lightbox" @click.self="closeLightbox">
-        <button class="lightbox-close" @click="closeLightbox">&times;</button>
+      <div
+        v-if="isLightboxOpen"
+        class="lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Project video"
+        @click.self="closeLightbox()"
+        @keydown.esc.stop="closeLightbox()"
+      >
+        <button ref="closeButton" class="lightbox-close" type="button" aria-label="Close video" @click="closeLightbox()">&times;</button>
         <div class="lightbox-content">
           <iframe 
             v-if="embedUrl" 
             :src="embedUrl" 
+            title="Project video"
             frameborder="0" 
             allow="autoplay; fullscreen; picture-in-picture" 
             allowfullscreen
@@ -139,10 +180,20 @@ const handleMouseLeave = () => {
 
 <style scoped>
 .project-main-media {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
   transition: transform 0.3s ease;
 }
 
 .project-main-media.is-clickable:hover {
+  transform: scale(1.02);
+}
+
+.project-main-media.is-clickable:focus-visible {
   transform: scale(1.02);
 }
 

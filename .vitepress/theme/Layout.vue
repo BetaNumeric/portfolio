@@ -5,7 +5,6 @@ import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
 import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
-import HomeHero from './components/HomeHero.vue'
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -132,7 +131,11 @@ const galleryMedia = computed<string[]>(() => {
 const lightboxIndex = ref<number | null>(null)
 const isLightboxOpen = computed(() => lightboxIndex.value !== null)
 const transitionDirection = ref('next')
+const prefersReducedMotion = ref(false)
+const lightboxDialog = ref<HTMLElement | null>(null)
+const lightboxCloseButton = ref<HTMLButtonElement | null>(null)
 let previousBodyOverflow = ''
+let lightboxTrigger: HTMLElement | null = null
 
 // Swipe/Drag logic
 const isDragging = ref(false)
@@ -191,16 +194,19 @@ const handleBackdropClick = () => {
   closeLightbox()
 }
 
-const openLightbox = (index: number) => {
+const openLightbox = (index: number, event?: Event) => {
   if (typeof document !== 'undefined' && lightboxIndex.value === null) {
     previousBodyOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    lightboxTrigger = event?.currentTarget as HTMLElement | null
   }
   lightboxIndex.value = index
   window.addEventListener('keydown', handleKeydown)
+  nextTick(() => lightboxCloseButton.value?.focus())
 }
 
-const closeLightbox = () => {
+const closeLightbox = (restoreFocus = true) => {
+  if (lightboxIndex.value === null) return
   if (typeof document !== 'undefined') {
     document.body.style.overflow = previousBodyOverflow
   }
@@ -211,6 +217,11 @@ const closeLightbox = () => {
   dragStartX.value = 0
   dragCurrentX.value = 0
   recentlyDragged.value = false
+  const trigger = lightboxTrigger
+  lightboxTrigger = null
+  if (restoreFocus && trigger?.isConnected) {
+    nextTick(() => trigger.focus())
+  }
 }
 
 const nextImage = () => {
@@ -226,9 +237,33 @@ const prevImage = () => {
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') closeLightbox()
-  if (e.key === 'ArrowRight') nextImage()
-  if (e.key === 'ArrowLeft') prevImage()
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    closeLightbox()
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    nextImage()
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    prevImage()
+  }
+  if (e.key === 'Tab' && lightboxDialog.value) {
+    const focusable = Array.from(
+      lightboxDialog.value.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')
+    )
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 }
 
 const videoPreviewPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
@@ -262,7 +297,6 @@ const resolvedHeroEmbedDarkMode = computed<boolean | null>(() => {
 
 const handleScroll = () => {
   const currentScrollY = window.scrollY
-  updateOverlayScrollbar()
   const header = document.querySelector('.site-header') as HTMLElement | null
   
   if (!header) return
@@ -288,156 +322,6 @@ const handleScroll = () => {
 
 const handleMouseEnter = () => {
   isNavbarHidden.value = false
-}
-
-const SCROLLBAR_REVEAL_EDGE_PX = 36
-const SCROLLBAR_REVEAL_HIDE_DELAY_MS = 420
-const MIN_OVERLAY_THUMB_PX = 40
-let scrollbarHideTimer: ReturnType<typeof setTimeout> | null = null
-let dragStartClientY = 0
-let dragStartScrollTop = 0
-
-const overlayScrollbarVisible = ref(false)
-const overlayScrollbarHasOverflow = ref(false)
-const overlayScrollbarDragging = ref(false)
-const overlayScrollbarThumbHeight = ref(0)
-const overlayScrollbarThumbTop = ref(0)
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(Math.max(value, min), max)
-}
-
-const getScrollMetrics = () => {
-  const doc = document.documentElement
-  const viewportHeight = window.innerHeight
-  const scrollTop = window.scrollY || doc.scrollTop || 0
-  const scrollHeight = doc.scrollHeight
-  const maxScrollTop = Math.max(scrollHeight - viewportHeight, 0)
-  return { viewportHeight, scrollTop, scrollHeight, maxScrollTop }
-}
-
-const updateOverlayScrollbar = () => {
-  if (typeof document === 'undefined') return
-  const { viewportHeight, scrollTop, scrollHeight, maxScrollTop } = getScrollMetrics()
-  const hasOverflow = maxScrollTop > 0
-  overlayScrollbarHasOverflow.value = hasOverflow
-
-  if (!hasOverflow) {
-    overlayScrollbarThumbHeight.value = 0
-    overlayScrollbarThumbTop.value = 0
-    overlayScrollbarVisible.value = false
-    return
-  }
-
-  const thumbHeight = clamp((viewportHeight / scrollHeight) * viewportHeight, MIN_OVERLAY_THUMB_PX, viewportHeight)
-  const maxThumbTop = Math.max(viewportHeight - thumbHeight, 0)
-  const progress = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0
-
-  overlayScrollbarThumbHeight.value = thumbHeight
-  overlayScrollbarThumbTop.value = maxThumbTop * progress
-}
-
-const showOverlayScrollbar = () => {
-  updateOverlayScrollbar()
-  if (!overlayScrollbarHasOverflow.value) return
-  overlayScrollbarVisible.value = true
-}
-
-const clearScrollbarHideTimer = () => {
-  if (!scrollbarHideTimer) return
-  clearTimeout(scrollbarHideTimer)
-  scrollbarHideTimer = null
-}
-
-const scheduleScrollbarHide = () => {
-  if (overlayScrollbarDragging.value) return
-  clearScrollbarHideTimer()
-  scrollbarHideTimer = setTimeout(() => {
-    overlayScrollbarVisible.value = false
-    scrollbarHideTimer = null
-  }, SCROLLBAR_REVEAL_HIDE_DELAY_MS)
-}
-
-const handleOverlayScrollbarDragMove = (event: MouseEvent) => {
-  if (!overlayScrollbarDragging.value || !overlayScrollbarHasOverflow.value) return
-  const { viewportHeight, maxScrollTop } = getScrollMetrics()
-  if (maxScrollTop <= 0) return
-  const trackTravel = Math.max(viewportHeight - overlayScrollbarThumbHeight.value, 1)
-  const deltaY = event.clientY - dragStartClientY
-  const nextScrollTop = clamp(dragStartScrollTop + (deltaY / trackTravel) * maxScrollTop, 0, maxScrollTop)
-  window.scrollTo({ top: nextScrollTop, behavior: 'auto' })
-}
-
-const stopOverlayScrollbarDrag = () => {
-  if (!overlayScrollbarDragging.value) return
-  overlayScrollbarDragging.value = false
-  window.removeEventListener('mousemove', handleOverlayScrollbarDragMove)
-  window.removeEventListener('mouseup', stopOverlayScrollbarDrag)
-  scheduleScrollbarHide()
-}
-
-const startOverlayScrollbarDrag = (event: MouseEvent) => {
-  if (!overlayScrollbarHasOverflow.value) return
-  event.preventDefault()
-  clearScrollbarHideTimer()
-  showOverlayScrollbar()
-  overlayScrollbarDragging.value = true
-  dragStartClientY = event.clientY
-  dragStartScrollTop = getScrollMetrics().scrollTop
-  window.addEventListener('mousemove', handleOverlayScrollbarDragMove)
-  window.addEventListener('mouseup', stopOverlayScrollbarDrag)
-}
-
-const handleOverlayScrollbarTrackMouseDown = (event: MouseEvent) => {
-  if (!overlayScrollbarHasOverflow.value) return
-  const track = event.currentTarget as HTMLElement | null
-  if (!track) return
-  const rect = track.getBoundingClientRect()
-  const clickY = event.clientY - rect.top
-  const maxThumbTop = Math.max(rect.height - overlayScrollbarThumbHeight.value, 0)
-  const thumbTop = clamp(clickY - overlayScrollbarThumbHeight.value / 2, 0, maxThumbTop)
-  const { maxScrollTop } = getScrollMetrics()
-  const progress = maxThumbTop > 0 ? thumbTop / maxThumbTop : 0
-  window.scrollTo({ top: progress * maxScrollTop, behavior: 'auto' })
-  startOverlayScrollbarDrag(event)
-}
-
-const handleScrollbarRevealMove = (event: MouseEvent) => {
-  if (!overlayScrollbarHasOverflow.value && !overlayScrollbarDragging.value) {
-    updateOverlayScrollbar()
-  }
-  if (!overlayScrollbarHasOverflow.value) return
-  const distanceFromRight = window.innerWidth - event.clientX
-  if (distanceFromRight <= SCROLLBAR_REVEAL_EDGE_PX) {
-    clearScrollbarHideTimer()
-    showOverlayScrollbar()
-    return
-  }
-  if (overlayScrollbarVisible.value) {
-    scheduleScrollbarHide()
-  }
-}
-
-const handleOverlayScrollbarMouseEnter = () => {
-  clearScrollbarHideTimer()
-  showOverlayScrollbar()
-}
-
-const handleOverlayScrollbarMouseLeave = () => {
-  scheduleScrollbarHide()
-}
-
-const handleWindowMouseLeave = (event: MouseEvent) => {
-  if (event.relatedTarget) return
-  stopOverlayScrollbarDrag()
-  clearScrollbarHideTimer()
-  overlayScrollbarVisible.value = false
-}
-
-const handleWindowBlur = () => {
-  stopOverlayScrollbarDrag()
-  clearScrollbarHideTimer()
-  overlayScrollbarVisible.value = false
 }
 
 // Theme Logic
@@ -501,14 +385,9 @@ const syncProjectCardsWithViewport = () => {
 }
 
 onMounted(() => {
+  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   homeGridLayout.value = resolveHomeGridLayout()
   window.addEventListener('scroll', handleScroll)
-  window.addEventListener('mousemove', handleScrollbarRevealMove, { passive: true })
-  window.addEventListener('mouseleave', handleWindowMouseLeave)
-  window.addEventListener('blur', handleWindowBlur)
-  window.addEventListener('resize', updateOverlayScrollbar, { passive: true })
-  updateOverlayScrollbar()
-  overlayScrollbarVisible.value = false
 
   observer = new IntersectionObserver(
     (entries) => {
@@ -526,15 +405,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  closeLightbox()
+  closeLightbox(false)
   window.removeEventListener('scroll', handleScroll)
-  window.removeEventListener('mousemove', handleScrollbarRevealMove)
-  window.removeEventListener('mouseleave', handleWindowMouseLeave)
-  window.removeEventListener('blur', handleWindowBlur)
-  window.removeEventListener('resize', updateOverlayScrollbar)
-  stopOverlayScrollbarDrag()
-  clearScrollbarHideTimer()
-  overlayScrollbarVisible.value = false
   observer?.disconnect()
 })
 
@@ -562,7 +434,6 @@ watch(
     // Use nextTick-like delay to ensure DOM is updated
     setTimeout(() => {
       if (isHome.value) resetProjectCards()
-      updateOverlayScrollbar()
     }, 0)
   }
 )
@@ -608,7 +479,7 @@ const handleLeave = (event: MouseEvent) => {
           <span class="site-title__role">Portfolio</span>
         </a>
         <nav :class="['site-nav', { 'is-open': mobileNavOpen }]" aria-label="Primary">
-          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]" @click="mobileNavOpen = false">
+          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]" :aria-current="isActive(item.link) ? 'page' : undefined" @click="mobileNavOpen = false">
             {{ item.text }}
           </a>
         </nav>
@@ -620,16 +491,12 @@ const handleLeave = (event: MouseEvent) => {
       </div>
       <div class="site-header__actions">
         <div class="site-header__actions-inner">
-          <button @click="toggleTheme" :class="['theme-toggle', { 'is-dark': isDark }]" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+          <button @click="toggleTheme" :class="['theme-toggle', { 'is-dark': isDark }]" :aria-pressed="!isDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
             <span class="sr-only">{{ isDark ? 'Light' : 'Dark' }}</span>
           </button>
         </div>
       </div>
     </header>
-
-    <section v-if="isHome">
-      <HomeHero />
-    </section>
 
     <!-- Full Width Project Hero -->
     <TimeScaleEmbed v-if="isProject && frontmatter.heroComponent === 'TimeScaleEmbed'" />
@@ -652,6 +519,12 @@ const handleLeave = (event: MouseEvent) => {
     ></div>
     <main class="site-main" :class="{ 'is-home': isHome }">
       <template v-if="isHome">
+        <header class="home-intro">
+          <p class="home-intro__role">{{ frontmatter.homeRole }}</p>
+          <h1>{{ frontmatter.homeHeading || site.title }}</h1>
+          <p class="home-intro__text">{{ frontmatter.homeIntro }}</p>
+        </header>
+
         <div class="project-grid-controls" v-if="projects.length > 1">
           <label v-if="availableProjectTags.length" class="project-filter" for="project-tag-filter">
             <span class="project-filter__label project-filter__label--sr-only">Filter projects by tag</span>
@@ -674,6 +547,7 @@ const handleLeave = (event: MouseEvent) => {
               :class="{ 'is-active': homeGridLayout === 'single' }"
               type="button"
               aria-label="Single column layout"
+              :aria-pressed="homeGridLayout === 'single'"
               @click="setHomeGridLayout('single')"
             >
               <span class="layout-icon layout-icon--single" aria-hidden="true"></span>
@@ -683,6 +557,7 @@ const handleLeave = (event: MouseEvent) => {
               :class="{ 'is-active': homeGridLayout === 'two' }"
               type="button"
               aria-label="Two column layout"
+              :aria-pressed="homeGridLayout === 'two'"
               @click="setHomeGridLayout('two')"
             >
               <span class="layout-icon layout-icon--two" aria-hidden="true"></span>
@@ -767,34 +642,49 @@ const handleLeave = (event: MouseEvent) => {
              <div class="project-gallery" v-if="galleryMedia.length">
                <h3>Gallery</h3>
                <div class="gallery-grid">
-                 <template v-for="(media, index) in galleryMedia.slice(0, 4)" :key="`${media}-${index}`">
+                 <button
+                   v-for="(media, index) in galleryMedia.slice(0, 4)"
+                   :key="`${media}-${index}`"
+                   class="gallery-button"
+                   type="button"
+                   :aria-label="`Open ${frontmatter.title} gallery item ${(index as number) + 1}`"
+                   aria-haspopup="dialog"
+                   @click="openLightbox(index as number, $event)"
+                 >
                    <video
                      v-if="isVideoPreview(media)"
                      :src="withBase(media)"
                      class="gallery-image"
-                     autoplay
+                     :autoplay="!prefersReducedMotion"
                      loop
                      muted
                      playsinline
                      preload="metadata"
-                     @click="openLightbox(index as number)"
-                   ></video>
-                   <img
-                     v-else
+                     aria-hidden="true"
+                    ></video>
+                    <img
+                      v-else
                      :src="withBase(media)"
-                     :alt="`${frontmatter.title} gallery image ${(index as number) + 1}`"
-                     loading="lazy"
-                     @click="openLightbox(index as number)"
-                     class="gallery-image"
-                   />
-                 </template>
+                      :alt="`${frontmatter.title} gallery image ${(index as number) + 1}`"
+                      loading="lazy"
+                      class="gallery-image"
+                    />
+                 </button>
                </div>
              </div>
 
              <!-- Gallery Lightbox -->
              <Teleport to="body">
-              <div v-if="isLightboxOpen" class="gallery-lightbox" @click.self="handleBackdropClick">
-                 <button class="lightbox-close" @click="closeLightbox">&times;</button>
+              <div
+                v-if="isLightboxOpen"
+                ref="lightboxDialog"
+                class="gallery-lightbox"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="`${frontmatter.title} gallery`"
+                @click.self="handleBackdropClick"
+              >
+                 <button ref="lightboxCloseButton" class="lightbox-close" type="button" aria-label="Close gallery" @click="closeLightbox()">&times;</button>
                  
                 <div class="lightbox-main" @click.self="handleBackdropClick">
                    <button class="lightbox-nav prev" @click.stop="prevImage" aria-label="Previous image">
@@ -819,11 +709,13 @@ const handleLeave = (event: MouseEvent) => {
                           :src="withBase(currentLightboxMedia)"
                           class="lightbox-current-media"
                           :style="{ transform: isDragging ? `translateX(${dragOffset}px)` : '' }"
-                          autoplay
+                          :autoplay="!prefersReducedMotion"
                           loop
                           muted
                           playsinline
                           preload="metadata"
+                          controls
+                          aria-label="Gallery video"
                         ></video>
                         <img
                           v-else-if="currentLightboxMedia"
@@ -832,7 +724,7 @@ const handleLeave = (event: MouseEvent) => {
                           class="lightbox-current-media"
                           :style="{ transform: isDragging ? `translateX(${dragOffset}px)` : '' }"
                           draggable="false"
-                          alt=""
+                          :alt="`${frontmatter.title} gallery image ${(lightboxIndex ?? 0) + 1}`"
                         />
                       </Transition>
                     </div>
@@ -843,17 +735,20 @@ const handleLeave = (event: MouseEvent) => {
                  </div>
                  
                  <div class="lightbox-thumbnails">
-                    <div
+                    <button
                       v-for="(media, index) in galleryMedia"
                       :key="`${media}-${index}`"
                       class="lightbox-thumb"
                       :class="{ active: index === lightboxIndex }"
+                      type="button"
+                      :aria-label="`Show gallery item ${(index as number) + 1}`"
+                      :aria-current="index === lightboxIndex ? 'true' : undefined"
                       @click.stop="() => { transitionDirection = 'jump'; lightboxIndex = index as number; }"
                     >
                       <video
                         v-if="isVideoPreview(media)"
                         :src="withBase(media)"
-                        autoplay
+                        :autoplay="!prefersReducedMotion"
                         loop
                         muted
                         playsinline
@@ -861,7 +756,7 @@ const handleLeave = (event: MouseEvent) => {
                         aria-hidden="true"
                       ></video>
                       <img v-else :src="withBase(media)" alt="" />
-                    </div>
+                    </button>
                   </div>
                 </div>
              </Teleport>
@@ -951,28 +846,11 @@ const handleLeave = (event: MouseEvent) => {
             <span v-else>{{ link.name }}</span>
           </a>
         </div>
-        <button :class="['footer-toggle','theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+        <button :class="['footer-toggle','theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :aria-pressed="!isDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <span class="sr-only">{{ isDark ? 'Light' : 'Dark' }}</span>
         </button>
       </div>
     </footer>
 
-    <div
-      v-show="overlayScrollbarHasOverflow"
-      class="overlay-scrollbar"
-      :class="{ 'is-visible': overlayScrollbarVisible, 'is-dragging': overlayScrollbarDragging }"
-      @mousedown="handleOverlayScrollbarTrackMouseDown"
-      @mouseenter="handleOverlayScrollbarMouseEnter"
-      @mouseleave="handleOverlayScrollbarMouseLeave"
-    >
-      <div
-        class="overlay-scrollbar__thumb"
-        :style="{
-          height: `${overlayScrollbarThumbHeight}px`,
-          transform: `translateY(${overlayScrollbarThumbTop}px)`,
-        }"
-        @mousedown.stop="startOverlayScrollbarDrag"
-      ></div>
-    </div>
   </div>
 </template>

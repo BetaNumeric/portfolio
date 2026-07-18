@@ -12,7 +12,8 @@ const withSiteBase = (src: string) => {
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   base: siteBase,
-  title: 'Tim',
+  title: 'Tim Redlich',
+  srcExclude: ['projects/_template/**'],
   ignoreDeadLinks: false,
   description:
     'Artist & creative technologist focusing on generative visuals, installations, and experimental media.',
@@ -39,7 +40,7 @@ export default defineConfig({
         const srcExpression = md.utils.escapeHtml(JSON.stringify(withSiteBase(src)))
         const srcAttr = `:src="${srcExpression}"`
 
-        return `<video ${srcAttr} class="md-inline-video" autoplay loop muted playsinline preload="metadata" aria-label="${escapedAlt}"${titleAttr}></video>`
+        return `<video ${srcAttr} class="md-inline-video" controls loop muted playsinline preload="metadata" aria-label="${escapedAlt}"${titleAttr}></video>`
       }
     }
   },

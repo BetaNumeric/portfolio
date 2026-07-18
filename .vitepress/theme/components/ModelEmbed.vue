@@ -29,6 +29,7 @@ const frameStyle = computed(() => ({
     <iframe
       :src="src"
       :title="title"
+      loading="lazy"
       frameborder="0"
       allowfullscreen
       mozallowfullscreen="true"
@@ -64,4 +65,3 @@ const frameStyle = computed(() => ({
   }
 }
 </style>
-

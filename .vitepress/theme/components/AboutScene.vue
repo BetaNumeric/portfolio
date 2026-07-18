@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { withBase } from 'vitepress'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 // --- CONFIGURATION ---
-const USER = 'BetaNumeric'
-const REPO = '3DME'
-const BRANCH = 'main'
-const MODEL_FILE_NAME = 'model/me.glb'
-const MODEL_URL = `https://raw.githubusercontent.com/${USER}/${REPO}/${BRANCH}/${MODEL_FILE_NAME}`
-
-// Start high - the optimizer will reduce this if needed
-const PARTICLE_COUNT = 1000000
+const MODEL_URL = withBase('/model/me.glb')
+const DESKTOP_PARTICLE_COUNT = 80000
+const MOBILE_PARTICLE_COUNT = 40000
+const REDUCED_MOTION_PARTICLE_COUNT = 20000
 
 // --- SHADERS ---
 const vertexShader = `
@@ -47,7 +44,8 @@ const fragmentShader = `
 
 const containerRef = ref<HTMLElement | null>(null)
 const loaderRef = ref<HTMLElement | null>(null)
-let animationId: number
+const loadError = ref(false)
+let animationId: number | null = null
 let renderer: THREE.WebGLRenderer
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
@@ -57,6 +55,15 @@ onMounted(() => {
 
     const container = containerRef.value
     const loaderElement = loaderRef.value
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+    const particleCount = prefersReducedMotion
+        ? REDUCED_MOTION_PARTICLE_COUNT
+        : isMobile
+          ? MOBILE_PARTICLE_COUNT
+          : DESKTOP_PARTICLE_COUNT
+    const maxPixelRatio = isMobile ? 1.5 : 2
+    let disposed = false
 
     scene = new THREE.Scene()
     scene.background = null
@@ -65,7 +72,7 @@ onMounted(() => {
     camera.position.set(0, 0, 3.5)
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio))
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setClearColor(0x000000, 0)
     container.appendChild(renderer.domElement)
@@ -97,7 +104,7 @@ onMounted(() => {
 
     const customUniforms = {
         uMouse: { value: new THREE.Vector3(0, 0, 0) },
-        uPixelRatio: { value: window.devicePixelRatio },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, maxPixelRatio) },
         uTexture: { value: null as THREE.Texture | null },
         uUseTexture: { value: false }
     }
@@ -252,6 +259,7 @@ onMounted(() => {
     // --- LOADING ---
     const gltfLoader = new GLTFLoader()
     gltfLoader.load(MODEL_URL, (gltf) => {
+        if (disposed) return
         const model = gltf.scene
         let texture: THREE.Texture | null = null
         
@@ -275,12 +283,12 @@ onMounted(() => {
                      texture = (mesh.material as THREE.MeshStandardMaterial).map
                 }
                 
-                const sampled = sampleGeometry(tempGeo, PARTICLE_COUNT)
-                const indices = shuffleIndices(PARTICLE_COUNT)
-                const pos = new Float32Array(PARTICLE_COUNT * 3)
-                const uv = new Float32Array(PARTICLE_COUNT * 2)
-                
-                for(let i=0; i<PARTICLE_COUNT; i++) {
+                const sampled = sampleGeometry(tempGeo, particleCount)
+                const indices = shuffleIndices(particleCount)
+                const pos = new Float32Array(particleCount * 3)
+                const uv = new Float32Array(particleCount * 2)
+
+                for(let i=0; i<particleCount; i++) {
                     const src = indices[i]
                     pos[i*3] = sampled.positions[src*3]
                     pos[i*3+1] = sampled.positions[src*3+1]
@@ -293,8 +301,8 @@ onMounted(() => {
                 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
                 geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
                 
-                bufferCount = PARTICLE_COUNT
-                activeParticleCount = PARTICLE_COUNT
+                bufferCount = particleCount
+                activeParticleCount = particleCount
                 originalPositions = new Float32Array(pos)
                 currentPositions = (geo.attributes.position as THREE.BufferAttribute).array as Float32Array
                 velocities = new Float32Array(bufferCount * 3)
@@ -316,14 +324,19 @@ onMounted(() => {
 
                 particles = new THREE.Points(geo, mat)
                 particles.frustumCulled = false
-                
+                tempGeo.dispose()
+
                 scene.add(particles)
                 if (loaderElement) loaderElement.classList.add('hidden')
-                
+
                 lastFpsCheck = performance.now()
                 updateModelPosition()
+                if (prefersReducedMotion) renderer.render(scene, camera)
             }
         })
+    }, undefined, () => {
+        if (disposed) return
+        loadError.value = true
     })
 
     // --- INPUT HANDLING ---
@@ -337,13 +350,12 @@ onMounted(() => {
         lastInteractionTime = Date.now()
     }
     
-    function isInteractiveElement(target: EventTarget | null) {
-        if (!target) return false
-        return (target as Element).closest && (target as Element).closest('a, button, input, textarea, select, [role="button"]')
+    function canStartInteraction(target: EventTarget | null) {
+        if (!(target instanceof Element)) return false
+        const region = target.closest('.about-container')
+        const control = target.closest('a, button, input, textarea, select, [role="button"]')
+        return Boolean(region && !control)
     }
-
-    const onContextMenu = (e: Event) => e.preventDefault()
-    window.addEventListener('contextmenu', onContextMenu)
 
     const onMouseMove = (e: MouseEvent) => { 
         updateMouse(e.clientX, e.clientY)
@@ -352,23 +364,20 @@ onMounted(() => {
             interact()
         }
     }
-    window.addEventListener('mousemove', onMouseMove)
     
     const onMouseDown = (e: MouseEvent) => { 
-        if (isInteractiveElement(e.target)) return
+        if (e.button !== 0 || !canStartInteraction(e.target)) return
         isDragging = true
         dragVelocityX = 0
         pulseIntensity = 0.8
-        swirlDirection = (e.button === 2) ? -1.0 : 1.0
+        swirlDirection = 1.0
         interact()
     }
-    window.addEventListener('mousedown', onMouseDown)
 
     const onMouseUp = () => { isDragging = false }
-    window.addEventListener('mouseup', onMouseUp)
     
     const onTouchStart = (e: TouchEvent) => {
-        if (isInteractiveElement(e.target)) return
+        if (!canStartInteraction(e.target)) return
         if(e.touches.length > 0) {
             const tx = e.touches[0].clientX
             const ty = e.touches[0].clientY
@@ -392,10 +401,8 @@ onMounted(() => {
             }
         }
     }
-    window.addEventListener('touchstart', onTouchStart, {passive: false})
     
     const onTouchEnd = () => { isDragging = false }
-    window.addEventListener('touchend', onTouchEnd)
     
     const onTouchMove = (e: TouchEvent) => { 
         if(e.touches.length > 0) {
@@ -407,7 +414,15 @@ onMounted(() => {
             previousTouchX = tx
         }
     }
-    window.addEventListener('touchmove', onTouchMove, {passive: false})
+
+    if (!prefersReducedMotion) {
+        window.addEventListener('mousemove', onMouseMove)
+        window.addEventListener('mousedown', onMouseDown)
+        window.addEventListener('mouseup', onMouseUp)
+        window.addEventListener('touchstart', onTouchStart, { passive: true })
+        window.addEventListener('touchend', onTouchEnd)
+        window.addEventListener('touchmove', onTouchMove, { passive: true })
+    }
 
     // --- ANIMATION LOOP ---
     const zoomScale = 3.5 / 3.0 
@@ -425,7 +440,8 @@ onMounted(() => {
     window.addEventListener('scroll', onScroll, { passive: true })
 
     function animate() {
-        animationId = requestAnimationFrame(animate)
+        animationId = null
+        if (document.hidden) return
         updateModelPosition()
         const nowTime = performance.now()
         const shouldRunPhysics = nowTime >= pausePhysicsUntil
@@ -632,24 +648,44 @@ onMounted(() => {
         }
 
         renderer.render(scene, camera)
+        if (!prefersReducedMotion) {
+            animationId = requestAnimationFrame(animate)
+        }
     }
 
-    animate()
+    if (prefersReducedMotion) {
+        animate()
+    } else {
+        animationId = requestAnimationFrame(animate)
+    }
+
+    const onVisibilityChange = () => {
+        if (document.hidden) {
+            if (animationId !== null) cancelAnimationFrame(animationId)
+            animationId = null
+        } else if (!prefersReducedMotion && animationId === null) {
+            animationId = requestAnimationFrame(animate)
+        }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     const onResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight
         camera.updateProjectionMatrix()
         renderer.setSize(window.innerWidth, window.innerHeight)
-        customUniforms.uPixelRatio.value = window.devicePixelRatio
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio)
+        renderer.setPixelRatio(pixelRatio)
+        customUniforms.uPixelRatio.value = pixelRatio
         updateModelPosition()
+        renderer.render(scene, camera)
     }
     window.addEventListener('resize', onResize)
 
     // CLEANUP
     onUnmounted(() => {
-        cancelAnimationFrame(animationId)
+        disposed = true
+        if (animationId !== null) cancelAnimationFrame(animationId)
         if (scrollRaf) cancelAnimationFrame(scrollRaf)
-        window.removeEventListener('contextmenu', onContextMenu)
         window.removeEventListener('mousemove', onMouseMove)
         window.removeEventListener('mousedown', onMouseDown)
         window.removeEventListener('mouseup', onMouseUp)
@@ -658,21 +694,25 @@ onMounted(() => {
         window.removeEventListener('touchmove', onTouchMove)
         window.removeEventListener('resize', onResize)
         window.removeEventListener('scroll', onScroll)
+        document.removeEventListener('visibilitychange', onVisibilityChange)
         
-        if (renderer) renderer.dispose()
         if (particles) {
             particles.geometry.dispose()
             ;(particles.material as THREE.Material).dispose()
         }
+        customUniforms.uTexture.value?.dispose()
+        dummyPlane.geometry.dispose()
+        ;(dummyPlane.material as THREE.Material).dispose()
+        if (renderer) renderer.dispose()
     })
 })
 </script>
 
 <template>
-    <div id="canvas-container" ref="containerRef">
-        <div id="loader" ref="loaderRef">
-            <div class="spinner"></div>
-            <div class="loading-text">Initializing...</div>
+    <div id="canvas-container" ref="containerRef" aria-hidden="true">
+        <div id="loader" ref="loaderRef" :class="{ 'has-error': loadError }">
+            <div v-if="!loadError" class="spinner"></div>
+            <div class="loading-text">{{ loadError ? '3D portrait unavailable' : 'Initializing...' }}</div>
         </div>
     </div>
 </template>
@@ -730,5 +770,17 @@ onMounted(() => {
         text-transform: uppercase;
     }
 
+    #loader.has-error .loading-text {
+        max-width: 220px;
+        text-align: center;
+        line-height: 1.4;
+    }
+
     .hidden { opacity: 0; pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .spinner {
+            animation: none;
+        }
+    }
 </style>

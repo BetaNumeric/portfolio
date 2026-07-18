@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, nextTick } from 'vue'
+import { ref, onMounted, onUpdated, nextTick, useId } from 'vue'
+import { withBase } from 'vitepress'
 
 const props = defineProps<{
   title?: string
@@ -12,6 +13,7 @@ const props = defineProps<{
 
 const isOpen = ref(props.alwaysOpen ? true : (props.defaultOpen ?? false))
 const root = ref<HTMLElement | null>(null)
+const contentId = `project-accordion-${useId()}`
 
 const toggle = () => {
   if (props.alwaysOpen) return
@@ -80,12 +82,20 @@ onUpdated(() => {
 
 <template>
   <div class="project-accordion" ref="root">
-    <div v-if="!props.alwaysOpen" class="section-trigger" @click="toggle">
-       <h2>{{ title }}</h2>
-       <img class="chevron" :class="{ 'is-open': isOpen }" src="/assets/icons/chevron_w.svg" alt="Toggle" />
-    </div>
+    <h2 v-if="!props.alwaysOpen" class="section-heading">
+      <button
+        class="section-trigger"
+        type="button"
+        :aria-expanded="isOpen"
+        :aria-controls="contentId"
+        @click="toggle"
+      >
+        <span>{{ title }}</span>
+        <img class="chevron" :class="{ 'is-open': isOpen }" :src="withBase('/assets/icons/chevron_w.svg')" alt="" aria-hidden="true" />
+      </button>
+    </h2>
 
-    <div class="accordion-content" :class="{ 'is-open': isOpen, 'center-images': props.centerImages }" v-show="isOpen">
+    <div :id="contentId" class="accordion-content" :class="{ 'is-open': isOpen, 'center-images': props.centerImages }" v-show="isOpen">
       <slot></slot>
     </div>
   </div>
@@ -97,21 +107,29 @@ onUpdated(() => {
   padding-bottom: 1rem;
 }
 
+.section-heading {
+  margin: 0 0 2rem;
+}
+
 .section-trigger {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
-  margin-bottom: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   user-select: none;
 }
 
-.section-trigger h2 {
-  margin: 0;
+.section-trigger span {
   font-size: 1rem; /* Matched to bold body text size */
   font-weight: 700; /* Bold like **text** */
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-right: 0.5rem;
 }
 
 .section-trigger .chevron {
