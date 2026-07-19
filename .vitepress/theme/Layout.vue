@@ -6,6 +6,7 @@ import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
 import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import { installArrowKeyScroll } from './utils/arrowKeyScroll'
+import { installSmoothWheelScroll } from './utils/smoothWheelScroll'
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -364,6 +365,7 @@ const toggleMobileNav = () => {
 
 let observer: IntersectionObserver | null = null
 let removeArrowKeyScroll: (() => void) | null = null
+let removeSmoothWheelScroll: (() => void) | null = null
 
 const collectProjectCards = () => {
   if (typeof document === 'undefined') return []
@@ -390,6 +392,7 @@ onMounted(() => {
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   homeGridLayout.value = resolveHomeGridLayout()
   removeArrowKeyScroll = installArrowKeyScroll()
+  removeSmoothWheelScroll = installSmoothWheelScroll()
   window.addEventListener('scroll', handleScroll)
 
   observer = new IntersectionObserver(
@@ -411,6 +414,8 @@ onUnmounted(() => {
   closeLightbox(false)
   removeArrowKeyScroll?.()
   removeArrowKeyScroll = null
+  removeSmoothWheelScroll?.()
+  removeSmoothWheelScroll = null
   window.removeEventListener('scroll', handleScroll)
   observer?.disconnect()
 })
