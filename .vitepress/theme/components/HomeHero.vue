@@ -45,10 +45,16 @@ type FragmentPhysicsState = {
   spinDirections: Float32Array
 }
 
-type FragmentSpan = {
-  width: number
-  height: number
-  weight: number
+type FragmentCorner = {
+  x: number
+  y: number
+  u: number
+  v: number
+}
+
+type FragmentPolygon = {
+  corners: FragmentCorner[]
+  matrix: THREE.Matrix4
 }
 
 const allProjects = projectsData.filter((project) => project.image && !project.link.includes('_template'))
@@ -172,11 +178,11 @@ const NORMALIZED_IMAGE_ASPECT = 16 / 9
 const IMAGE_PLANE_WIDTH = IMAGE_PLANE_HEIGHT * NORMALIZED_IMAGE_ASPECT
 const DEPTH_SPREAD = 92
 const TEXTURE_BASE_WIDTH = 864
-const FRAGMENT_GRID_COLUMNS = 36
-const FRAGMENT_GRID_ROWS = 25
-const FRAGMENT_RENDER_BUCKETS = 6
-const FRAGMENT_GAP_MIN = 1
-const FRAGMENT_GAP_MAX = 1
+const FRAGMENT_GRID_COLUMNS = 28
+const FRAGMENT_GRID_ROWS = 20
+const FRAGMENT_GRID_JITTER = 0.28
+const FRAGMENT_DOMINO_CHANCE = 0.38
+const FRAGMENT_TRIANGLE_CHANCE = 0.42
 const ROTATION_LERP = 0.1
 const ROTATION_DRAG_FACTOR = 0.001
 const ROTATION_X_LERP = 0.12
@@ -232,16 +238,7 @@ const SNAP_SETTLE_THRESHOLD = THREE.MathUtils.degToRad(0.25)
 const NAVBAR_CONTENT_WIDTH_FALLBACK_PX = 860
 const PERFORMANCE_SAMPLE_MS = 600
 const TAU = Math.PI * 2
-const FRAGMENT_SPAN_OPTIONS: FragmentSpan[] = [
-  { width: 1, height: 1, weight: 0.7 },
-  { width: 2, height: 1, weight: 1 },
-  { width: 1, height: 2, weight: 1 },
-  { width: 2, height: 2, weight: 0.8 },
-  { width: 3, height: 1, weight: 0.34 },
-  { width: 1, height: 3, weight: 0.34 },
-  { width: 3, height: 2, weight: 0.16 },
-  { width: 2, height: 3, weight: 0.16 },
-]
+const MAX_FRAGMENT_CORNERS = 6
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max)
@@ -483,98 +480,87 @@ const buildTextureCanvas = (image: HTMLImageElement) => {
   return { canvas }
 }
 
-const isSpanAvailable = (
-  occupied: boolean[],
-  startX: number,
-  startY: number,
-  width: number,
-  height: number
-) => {
-  if (startX + width > FRAGMENT_GRID_COLUMNS || startY + height > FRAGMENT_GRID_ROWS) return false
+const buildFragmentGeometry = (vertexCount: number) => {
+  const triangleVertexCount = vertexCount * 3
+  const positions = new Float32Array(triangleVertexCount * 3)
+  const cornerIndices = new Float32Array(triangleVertexCount)
+  const polygonVertexCounts = new Float32Array(triangleVertexCount)
 
-  for (let y = startY; y < startY + height; y += 1) {
-    for (let x = startX; x < startX + width; x += 1) {
-      if (occupied[y * FRAGMENT_GRID_COLUMNS + x]) return false
+  for (let edgeIndex = 0; edgeIndex < vertexCount; edgeIndex += 1) {
+    const offset = edgeIndex * 3
+    cornerIndices[offset] = -1
+    cornerIndices[offset + 1] = edgeIndex
+    cornerIndices[offset + 2] = (edgeIndex + 1) % vertexCount
+    polygonVertexCounts[offset] = vertexCount
+    polygonVertexCounts[offset + 1] = vertexCount
+    polygonVertexCounts[offset + 2] = vertexCount
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('cornerIndex', new THREE.BufferAttribute(cornerIndices, 1))
+  geometry.setAttribute('polygonVertexCount', new THREE.BufferAttribute(polygonVertexCounts, 1))
+  return geometry
+}
+
+const buildFragmentBucket = (fragments: FragmentPolygon[]) => {
+  const vertexCount = fragments[0]?.corners.length ?? 0
+  const geometry = buildFragmentGeometry(vertexCount)
+  const matrices: THREE.Matrix4[] = []
+  const cornerData = Array.from({ length: MAX_FRAGMENT_CORNERS }, () => [] as number[])
+
+  for (let fragmentIndex = 0; fragmentIndex < fragments.length; fragmentIndex += 1) {
+    const fragment = fragments[fragmentIndex]
+    matrices.push(fragment.matrix.clone())
+
+    for (let cornerIndex = 0; cornerIndex < MAX_FRAGMENT_CORNERS; cornerIndex += 1) {
+      const corner = fragment.corners[Math.min(cornerIndex, fragment.corners.length - 1)]
+      cornerData[cornerIndex].push(corner.x, corner.y, corner.u, corner.v)
     }
   }
 
-  return true
-}
-
-const fillSpan = (
-  occupied: boolean[],
-  startX: number,
-  startY: number,
-  width: number,
-  height: number
-) => {
-  for (let y = startY; y < startY + height; y += 1) {
-    for (let x = startX; x < startX + width; x += 1) {
-      occupied[y * FRAGMENT_GRID_COLUMNS + x] = true
-    }
-  }
-}
-
-const pickFragmentSpan = (random: () => number, occupied: boolean[], startX: number, startY: number) => {
-  const validOptions = FRAGMENT_SPAN_OPTIONS.filter((option) => {
-    return isSpanAvailable(occupied, startX, startY, option.width, option.height)
-  })
-
-  const options = validOptions.length ? validOptions : [{ width: 1, height: 1, weight: 1 }]
-  const totalWeight = options.reduce((sum, option) => sum + option.weight, 0)
-  let target = random() * totalWeight
-
-  for (let index = 0; index < options.length; index += 1) {
-    target -= options[index].weight
-    if (target <= 0) return options[index]
-  }
-
-  return options[options.length - 1]
-}
-
-const shuffleIndices = (random: () => number, count: number) => {
-  const indices = Array.from({ length: count }, (_, index) => index)
-
-  for (let index = count - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1))
-    const temp = indices[index]
-    indices[index] = indices[swapIndex]
-    indices[swapIndex] = temp
-  }
-
-  return indices
-}
-
-const buildFragmentBucket = (
-  matrices: THREE.Matrix4[],
-  instanceUvRect: number[],
-  indices: number[]
-) => {
-  const geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
-  const bucketMatrices: THREE.Matrix4[] = []
-  const bucketUvRect: number[] = []
-
-  for (let index = 0; index < indices.length; index += 1) {
-    const fragmentIndex = indices[index]
-    const vec4Offset = fragmentIndex * 4
-
-    bucketMatrices.push(matrices[fragmentIndex].clone())
-    bucketUvRect.push(
-      instanceUvRect[vec4Offset],
-      instanceUvRect[vec4Offset + 1],
-      instanceUvRect[vec4Offset + 2],
-      instanceUvRect[vec4Offset + 3]
+  for (let cornerIndex = 0; cornerIndex < MAX_FRAGMENT_CORNERS; cornerIndex += 1) {
+    geometry.setAttribute(
+      `instanceCorner${cornerIndex}`,
+      new THREE.InstancedBufferAttribute(new Float32Array(cornerData[cornerIndex]), 4)
     )
   }
 
-  geometry.setAttribute('instanceUvRect', new THREE.InstancedBufferAttribute(new Float32Array(bucketUvRect), 4))
-  geometry.computeBoundingSphere()
-
   return {
     geometry,
-    matrices: bucketMatrices,
-    maxFragments: bucketMatrices.length,
+    matrices,
+    maxFragments: matrices.length,
   } satisfies FragmentBucketResource
+}
+
+const buildTessellationVertices = (random: () => number) => {
+  const vertices: FragmentCorner[] = []
+
+  for (let y = 0; y <= FRAGMENT_GRID_ROWS; y += 1) {
+    for (let x = 0; x <= FRAGMENT_GRID_COLUMNS; x += 1) {
+      const jitterX = x === 0 || x === FRAGMENT_GRID_COLUMNS
+        ? 0
+        : randomBetween(random, -FRAGMENT_GRID_JITTER, FRAGMENT_GRID_JITTER)
+      const jitterY = y === 0 || y === FRAGMENT_GRID_ROWS
+        ? 0
+        : randomBetween(random, -FRAGMENT_GRID_JITTER, FRAGMENT_GRID_JITTER)
+      const u = (x + jitterX) / FRAGMENT_GRID_COLUMNS
+      const v = 1 - (y + jitterY) / FRAGMENT_GRID_ROWS
+
+      vertices.push({
+        x: (u - 0.5) * IMAGE_PLANE_WIDTH,
+        y: (v - 0.5) * IMAGE_PLANE_HEIGHT,
+        u,
+        v,
+      })
+    }
+  }
+
+  return vertices
+}
+
+const getTessellationVertex = (vertices: FragmentCorner[], x: number, y: number) => {
+  return vertices[y * (FRAGMENT_GRID_COLUMNS + 1) + x]
 }
 
 const buildFragmentResource = async (projectIndex: number) => {
@@ -603,11 +589,8 @@ const buildFragmentResource = async (projectIndex: number) => {
   texture.generateMipmaps = true
 
   const random = createSeededRandom(hashString(`${project.title}:${project.link}:${projectIndex}`))
-  const occupied = new Array(FRAGMENT_GRID_COLUMNS * FRAGMENT_GRID_ROWS).fill(false)
-  const geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
   const axis = projectOrientations[projectIndex]?.axis
   if (!axis) {
-    geometry.dispose()
     texture.dispose()
     return null
   }
@@ -618,71 +601,119 @@ const buildFragmentResource = async (projectIndex: number) => {
     .normalize()
     .clone()
   const planeAxis = tempAxisX.crossVectors(planeUp, axis).normalize().clone()
-  const cellWidth = IMAGE_PLANE_WIDTH / FRAGMENT_GRID_COLUMNS
-  const cellHeight = IMAGE_PLANE_HEIGHT / FRAGMENT_GRID_ROWS
-  const insetU = 0
-  const insetV = 0
-
-  const matrices: THREE.Matrix4[] = []
-  const instanceUvRect: number[] = []
+  const tessellationVertices = buildTessellationVertices(random)
+  const occupied = new Array(FRAGMENT_GRID_COLUMNS * FRAGMENT_GRID_ROWS).fill(false)
+  const fragments: FragmentPolygon[] = []
 
   tempBasis.makeBasis(planeAxis, planeUp, axis)
   tempQuaternion.setFromRotationMatrix(tempBasis)
 
+  const addPolygon = (sourceCorners: FragmentCorner[]) => {
+    const centerX = sourceCorners.reduce((sum, corner) => sum + corner.x, 0) / sourceCorners.length
+    const centerY = sourceCorners.reduce((sum, corner) => sum + corner.y, 0) / sourceCorners.length
+    const depthOffset = randomBetween(random, -DEPTH_SPREAD, DEPTH_SPREAD)
+
+    tempPosition.copy(planeAxis).multiplyScalar(centerX)
+    tempPosition.addScaledVector(planeUp, centerY)
+    tempPosition.addScaledVector(axis, depthOffset)
+    tempScale.set(1, 1, 1)
+    tempMatrix.compose(tempPosition, tempQuaternion, tempScale)
+
+    fragments.push({
+      corners: sourceCorners.map((corner) => ({
+        x: corner.x - centerX,
+        y: corner.y - centerY,
+        u: corner.u,
+        v: corner.v,
+      })),
+      matrix: tempMatrix.clone(),
+    })
+  }
+
+  const isOccupied = (x: number, y: number) => occupied[y * FRAGMENT_GRID_COLUMNS + x]
+  const occupy = (x: number, y: number) => {
+    occupied[y * FRAGMENT_GRID_COLUMNS + x] = true
+  }
+
   for (let y = 0; y < FRAGMENT_GRID_ROWS; y += 1) {
     for (let x = 0; x < FRAGMENT_GRID_COLUMNS; x += 1) {
-      if (occupied[y * FRAGMENT_GRID_COLUMNS + x]) continue
+      if (isOccupied(x, y)) continue
 
-      const span = pickFragmentSpan(random, occupied, x, y)
-      fillSpan(occupied, x, y, span.width, span.height)
+      const canMergeRight = x + 1 < FRAGMENT_GRID_COLUMNS && !isOccupied(x + 1, y)
+      const canMergeDown = y + 1 < FRAGMENT_GRID_ROWS && !isOccupied(x, y + 1)
+      const mergeCandidates: Array<'right' | 'down'> = []
+      if (canMergeRight) mergeCandidates.push('right')
+      if (canMergeDown) mergeCandidates.push('down')
 
-      const gapScale = randomBetween(random, FRAGMENT_GAP_MIN, FRAGMENT_GAP_MAX)
-      const fragmentWidth = Math.max(cellWidth * 0.72, cellWidth * span.width * gapScale)
-      const fragmentHeight = Math.max(cellHeight * 0.72, cellHeight * span.height * gapScale)
-      const centerX = ((x + span.width * 0.5) / FRAGMENT_GRID_COLUMNS - 0.5) * IMAGE_PLANE_WIDTH
-      const centerY = (0.5 - (y + span.height * 0.5) / FRAGMENT_GRID_ROWS) * IMAGE_PLANE_HEIGHT
-      const depthOffset = randomBetween(random, -DEPTH_SPREAD, DEPTH_SPREAD)
+      if (mergeCandidates.length && random() < FRAGMENT_DOMINO_CHANCE) {
+        const direction = mergeCandidates[Math.floor(random() * mergeCandidates.length)]
+        occupy(x, y)
 
-      tempPosition.copy(planeAxis).multiplyScalar(centerX)
-      tempPosition.addScaledVector(planeUp, centerY)
-      tempPosition.addScaledVector(axis, depthOffset)
-      tempScale.set(fragmentWidth, fragmentHeight, 1)
-      tempMatrix.compose(tempPosition, tempQuaternion, tempScale)
-      matrices.push(tempMatrix.clone())
+        if (direction === 'right') {
+          occupy(x + 1, y)
+          addPolygon([
+            getTessellationVertex(tessellationVertices, x, y),
+            getTessellationVertex(tessellationVertices, x + 1, y),
+            getTessellationVertex(tessellationVertices, x + 2, y),
+            getTessellationVertex(tessellationVertices, x + 2, y + 1),
+            getTessellationVertex(tessellationVertices, x + 1, y + 1),
+            getTessellationVertex(tessellationVertices, x, y + 1),
+          ])
+        } else {
+          occupy(x, y + 1)
+          addPolygon([
+            getTessellationVertex(tessellationVertices, x, y),
+            getTessellationVertex(tessellationVertices, x + 1, y),
+            getTessellationVertex(tessellationVertices, x + 1, y + 1),
+            getTessellationVertex(tessellationVertices, x + 1, y + 2),
+            getTessellationVertex(tessellationVertices, x, y + 2),
+            getTessellationVertex(tessellationVertices, x, y + 1),
+          ])
+        }
+        continue
+      }
 
-      const uOffset = x / FRAGMENT_GRID_COLUMNS + insetU
-      const uScale = Math.max(span.width / FRAGMENT_GRID_COLUMNS - insetU * 2, 0.0001)
-      const vOffset = 1 - (y + span.height) / FRAGMENT_GRID_ROWS + insetV
-      const vScale = Math.max(span.height / FRAGMENT_GRID_ROWS - insetV * 2, 0.0001)
-      instanceUvRect.push(uOffset, vOffset, uScale, vScale)
+      occupy(x, y)
+      const topLeft = getTessellationVertex(tessellationVertices, x, y)
+      const topRight = getTessellationVertex(tessellationVertices, x + 1, y)
+      const bottomRight = getTessellationVertex(tessellationVertices, x + 1, y + 1)
+      const bottomLeft = getTessellationVertex(tessellationVertices, x, y + 1)
+
+      if (random() < FRAGMENT_TRIANGLE_CHANCE) {
+        if (random() < 0.5) {
+          addPolygon([topLeft, topRight, bottomRight])
+          addPolygon([topLeft, bottomRight, bottomLeft])
+        } else {
+          addPolygon([topLeft, topRight, bottomLeft])
+          addPolygon([topRight, bottomRight, bottomLeft])
+        }
+      } else {
+        addPolygon([topLeft, topRight, bottomRight, bottomLeft])
+      }
     }
   }
 
-  if (!matrices.length) {
-    geometry.dispose()
+  if (!fragments.length) {
     texture.dispose()
     return null
   }
 
-  geometry.dispose()
-
-  const shuffledIndices = shuffleIndices(random, matrices.length)
-  const bucketCount = Math.min(FRAGMENT_RENDER_BUCKETS, matrices.length)
-  const bucketIndices = Array.from({ length: bucketCount }, () => [] as number[])
-
-  for (let index = 0; index < shuffledIndices.length; index += 1) {
-    bucketIndices[index % bucketCount].push(shuffledIndices[index])
+  const fragmentGroups = new Map<number, FragmentPolygon[]>()
+  for (let index = 0; index < fragments.length; index += 1) {
+    const fragment = fragments[index]
+    const vertexCount = fragment.corners.length
+    const group = fragmentGroups.get(vertexCount) ?? []
+    group.push(fragment)
+    fragmentGroups.set(vertexCount, group)
   }
 
-  const buckets = bucketIndices
-    .filter((indices) => indices.length > 0)
-    .map((indices) => {
-      return buildFragmentBucket(matrices, instanceUvRect, indices)
-    })
+  const buckets = [...fragmentGroups.entries()]
+    .sort(([vertexCountA], [vertexCountB]) => vertexCountA - vertexCountB)
+    .map(([, group]) => buildFragmentBucket(group))
 
   return {
     buckets,
-    maxFragments: matrices.length,
+    maxFragments: fragments.length,
     texture,
   } satisfies FragmentResource
 }
@@ -1053,18 +1084,42 @@ const updateFragmentHoverPhysics = () => {
 }
 
 const fragmentVertexShader = `
-attribute vec4 instanceUvRect;
+attribute float cornerIndex;
+attribute float polygonVertexCount;
+attribute vec4 instanceCorner0;
+attribute vec4 instanceCorner1;
+attribute vec4 instanceCorner2;
+attribute vec4 instanceCorner3;
+attribute vec4 instanceCorner4;
+attribute vec4 instanceCorner5;
 
 varying vec2 vMapUv;
 
+vec4 getPolygonCorner() {
+  if (cornerIndex < -0.5) {
+    vec4 center = instanceCorner0 + instanceCorner1 + instanceCorner2;
+    if (polygonVertexCount > 3.5) center += instanceCorner3;
+    if (polygonVertexCount > 4.5) center += instanceCorner4;
+    if (polygonVertexCount > 5.5) center += instanceCorner5;
+    return center / polygonVertexCount;
+  }
+  if (cornerIndex < 0.5) return instanceCorner0;
+  if (cornerIndex < 1.5) return instanceCorner1;
+  if (cornerIndex < 2.5) return instanceCorner2;
+  if (cornerIndex < 3.5) return instanceCorner3;
+  if (cornerIndex < 4.5) return instanceCorner4;
+  return instanceCorner5;
+}
+
 void main() {
-  vec4 worldPosition = vec4(position, 1.0);
+  vec4 corner = getPolygonCorner();
+  vec4 worldPosition = vec4(corner.xy, 0.0, 1.0);
   #ifdef USE_INSTANCING
     worldPosition = instanceMatrix * worldPosition;
   #endif
 
   gl_Position = projectionMatrix * modelViewMatrix * worldPosition;
-  vMapUv = uv * instanceUvRect.zw + instanceUvRect.xy;
+  vMapUv = corner.zw;
 }
 `
 
