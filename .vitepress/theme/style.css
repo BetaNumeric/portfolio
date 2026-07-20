@@ -210,6 +210,10 @@ a {
   padding-top: 108px;
 }
 
+.site-main.is-home--legacy {
+  padding-top: 48px;
+}
+
 .home-intro {
   width: 100%;
   max-width: var(--project-card-max-width);
@@ -776,6 +780,10 @@ a {
 
   .site-main.is-home {
     padding-top: 92px;
+  }
+
+  .site-main.is-home--legacy {
+    padding-top: 40px;
   }
 
   .home-intro {

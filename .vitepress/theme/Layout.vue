@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, withBase } from 'vitepress'
 import { data as projectsData } from './projects.data.mjs'
 import TimeScaleEmbed from './components/TimeScaleEmbed.vue'
@@ -7,6 +7,8 @@ import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import { installArrowKeyScroll } from './utils/arrowKeyScroll'
 import { installSmoothWheelScroll } from './utils/smoothWheelScroll'
+
+const LegacyHomeHero = defineAsyncComponent(() => import('./components/HomeHero.vue'))
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -52,6 +54,13 @@ const selectRelatedProjects = (salt: string) => {
 const footerProjects = computed(() => selectRelatedProjects('footer'))
 const isHome = computed(() => frontmatter.value.layout === 'home' || frontmatter.value.home)
 const isProject = computed(() => frontmatter.value.layout === 'project')
+const showLegacyHomeHero = ref(false)
+
+const syncLegacyHomeHeroFromUrl = () => {
+  if (typeof window === 'undefined') return
+  showLegacyHomeHero.value = new URLSearchParams(window.location.search).get('hero') === 'legacy'
+}
+
 const projects = computed(() => frontmatter.value.projects ?? projectsData)
 type ProjectCard = (typeof projectsData)[number] & {
   cta?: string
@@ -391,9 +400,11 @@ const syncProjectCardsWithViewport = () => {
 onMounted(() => {
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   homeGridLayout.value = resolveHomeGridLayout()
+  syncLegacyHomeHeroFromUrl()
   removeArrowKeyScroll = installArrowKeyScroll()
   removeSmoothWheelScroll = installSmoothWheelScroll()
   window.addEventListener('scroll', handleScroll)
+  window.addEventListener('popstate', syncLegacyHomeHeroFromUrl)
 
   observer = new IntersectionObserver(
     (entries) => {
@@ -417,6 +428,7 @@ onUnmounted(() => {
   removeSmoothWheelScroll?.()
   removeSmoothWheelScroll = null
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('popstate', syncLegacyHomeHeroFromUrl)
   observer?.disconnect()
 })
 
@@ -436,6 +448,7 @@ const resetProjectCards = () => {
 watch(
   () => route.path,
   () => {
+    syncLegacyHomeHeroFromUrl()
     closeLightbox()
     mobileNavOpen.value = false
     if (isHome.value) {
@@ -508,6 +521,10 @@ const handleLeave = (event: MouseEvent) => {
       </div>
     </header>
 
+    <section v-if="isHome && showLegacyHomeHero" class="legacy-home-hero" aria-label="Featured projects">
+      <LegacyHomeHero />
+    </section>
+
     <!-- Full Width Project Hero -->
     <TimeScaleEmbed v-if="isProject && frontmatter.heroComponent === 'TimeScaleEmbed'" />
     <AlgorithmicDrawingEmbed v-else-if="isProject && frontmatter.heroComponent === 'AlgorithmicDrawingEmbed'" />
@@ -527,9 +544,9 @@ const handleLeave = (event: MouseEvent) => {
       class="project-hero-fullscreen"
       :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"
     ></div>
-    <main class="site-main" :class="{ 'is-home': isHome }">
+    <main class="site-main" :class="{ 'is-home': isHome, 'is-home--legacy': isHome && showLegacyHomeHero }">
       <template v-if="isHome">
-        <header class="home-intro">
+        <header v-if="!showLegacyHomeHero" class="home-intro">
           <p class="home-intro__role">{{ frontmatter.homeRole }}</p>
           <h1>{{ frontmatter.homeHeading || site.title }}</h1>
           <p class="home-intro__text">{{ frontmatter.homeIntro }}</p>

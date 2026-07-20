@@ -80,6 +80,7 @@ const fragmentMeshes: Array<THREE.InstancedMesh | null> = []
 const fragmentTextures: Array<THREE.Texture | null> = []
 const fragmentAccumMaterials: Array<THREE.ShaderMaterial | null> = []
 const fragmentRevealMaterials: Array<THREE.ShaderMaterial | null> = []
+const fragmentForegroundMaterials: Array<THREE.ShaderMaterial | null> = []
 let accumRenderTarget: THREE.WebGLRenderTarget | null = null
 let revealRenderTarget: THREE.WebGLRenderTarget | null = null
 let compositeScene: THREE.Scene | null = null
@@ -126,6 +127,7 @@ const tempComposedQuaternion = new THREE.Quaternion()
 const tempSpinEuler = new THREE.Euler()
 const tempLocalViewAxis = new THREE.Vector3()
 const projectAlignmentScores: number[] = []
+const projectDominanceRanges: number[] = []
 const hoverRaycaster = new THREE.Raycaster()
 const hoverInteractionPlane = new THREE.Plane()
 
@@ -221,6 +223,9 @@ const FRAGMENT_OPACITY_FADE_START = 0.56
 const FRAGMENT_OPACITY_FADE_END = 0.97
 const PROJECT_FOCUS_SOFT_SELECTION = 18
 const PROJECT_FOCUS_BLEND_EXP = 1.6
+const ACTIVE_FOREGROUND_FADE_START = Math.cos(THREE.MathUtils.degToRad(50))
+const ACTIVE_FOREGROUND_FADE_END = Math.cos(THREE.MathUtils.degToRad(8))
+const ACTIVE_FOREGROUND_OPACITY = 0.98
 const SNAP_ANGLE_THRESHOLD = THREE.MathUtils.degToRad(20)
 const SNAP_PULL = 0.22
 const SNAP_SETTLE_THRESHOLD = THREE.MathUtils.degToRad(0.25)
@@ -416,6 +421,7 @@ const loadImage = (url: string) => {
 const setupProjectOrientations = () => {
   projectOrientations.length = 0
   projectAlignmentScores.length = projects.length
+  projectDominanceRanges.length = projects.length
 
   if (!projects.length) return
 
@@ -423,6 +429,17 @@ const setupProjectOrientations = () => {
   for (let index = 0; index < orientations.length; index += 1) {
     projectOrientations[index] = orientations[index]
     projectAlignmentScores[index] = 0
+
+    let closestNeighborAlignment = -1
+    for (let neighborIndex = 0; neighborIndex < orientations.length; neighborIndex += 1) {
+      if (neighborIndex === index) continue
+      closestNeighborAlignment = Math.max(
+        closestNeighborAlignment,
+        orientations[index].axis.dot(orientations[neighborIndex].axis)
+      )
+    }
+
+    projectDominanceRanges[index] = Math.max(1 - closestNeighborAlignment, 0.001)
   }
 }
 
@@ -1158,6 +1175,30 @@ void main() {
   })
 }
 
+const createFragmentForegroundMaterial = (texture: THREE.Texture) => {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: texture },
+      uOpacity: { value: ACTIVE_FOREGROUND_OPACITY },
+    },
+    vertexShader: fragmentVertexShader,
+    fragmentShader: `
+${fragmentShaderCommon}
+
+void main() {
+  vec4 texel = sampleFragmentTexel();
+  if (texel.a < 0.001) discard;
+  gl_FragColor = texel;
+  #include <colorspace_fragment>
+}
+`,
+    transparent: true,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.DoubleSide,
+  })
+}
+
 const initCompositeResources = () => {
   if (!renderer) return
 
@@ -1264,6 +1305,45 @@ const updatePerformanceDebug = (time: number) => {
   perfSampleFrameCount = 0
 }
 
+const renderProjectForeground = (projectIndex: number, opacity: number) => {
+  if (!renderer || !scene || !camera || opacity <= 0.001) return
+
+  let hasForegroundMesh = false
+  const previousAutoClear = renderer.autoClear
+
+  for (let index = 0; index < fragmentMeshes.length; index += 1) {
+    const mesh = fragmentMeshes[index]
+    const material = fragmentForegroundMaterials[index]
+    if (!mesh) continue
+
+    const meshData = mesh.userData as FragmentMeshData
+    const isActiveProject = meshData.projectIndex === projectIndex && Boolean(material)
+    mesh.visible = isActiveProject
+
+    if (isActiveProject && material) {
+      material.uniforms.uOpacity.value = opacity
+      mesh.material = material
+      hasForegroundMesh = true
+    }
+  }
+
+  try {
+    if (!hasForegroundMesh) return
+    renderer.autoClear = false
+    renderer.clearDepth()
+    renderer.render(scene, camera)
+  } finally {
+    renderer.autoClear = previousAutoClear
+    for (let index = 0; index < fragmentMeshes.length; index += 1) {
+      const mesh = fragmentMeshes[index]
+      if (!mesh) continue
+      mesh.visible = true
+      const revealMaterial = fragmentRevealMaterials[index]
+      if (revealMaterial) mesh.material = revealMaterial
+    }
+  }
+}
+
 const tick = (time: number) => {
   if (disposed) return
   const delta = lastFrameTime ? time - lastFrameTime : 16
@@ -1313,6 +1393,22 @@ const tick = (time: number) => {
     focusSoftSelection: PROJECT_FOCUS_SOFT_SELECTION,
     focusBlendExponent: PROJECT_FOCUS_BLEND_EXP,
   })
+  const activeAlignment = projectAlignmentScores[activeProjectIndex.value] ?? -1
+  let secondBestAlignment = -1
+  for (let index = 0; index < projectAlignmentScores.length; index += 1) {
+    if (index === activeProjectIndex.value) continue
+    secondBestAlignment = Math.max(secondBestAlignment, projectAlignmentScores[index] ?? -1)
+  }
+
+  const alignmentStrength = THREE.MathUtils.smoothstep(
+    activeAlignment,
+    ACTIVE_FOREGROUND_FADE_START,
+    ACTIVE_FOREGROUND_FADE_END
+  )
+  const dominanceRange = projectDominanceRanges[activeProjectIndex.value] ?? 1
+  const normalizedDominance = (activeAlignment - secondBestAlignment) / dominanceRange
+  const dominanceStrength = THREE.MathUtils.smoothstep(normalizedDominance, 0, 1)
+  const foregroundOpacity = alignmentStrength * dominanceStrength * ACTIVE_FOREGROUND_OPACITY
 
   let visibleFragments = 0
   for (let index = 0; index < fragmentMeshes.length; index += 1) {
@@ -1386,6 +1482,7 @@ const tick = (time: number) => {
     renderer.setClearColor(0x000000, 0)
     renderer.clear(true, false, false)
     renderer.render(compositeScene, compositeCamera)
+    renderProjectForeground(activeProjectIndex.value, foregroundOpacity)
   }
 
   animationFrame = window.requestAnimationFrame(tick)
@@ -1487,6 +1584,7 @@ const initScene = async () => {
   fragmentTextures.fill(null)
   fragmentAccumMaterials.length = 0
   fragmentRevealMaterials.length = 0
+  fragmentForegroundMaterials.length = 0
   totalFragmentCount = 0
   perfSampleStartTime = 0
   perfSampleFrameCount = 0
@@ -1511,6 +1609,7 @@ const initScene = async () => {
 
       const accumMaterial = createFragmentPassMaterial(resource.texture, 'accum')
       const revealMaterial = createFragmentPassMaterial(resource.texture, 'reveal')
+      const foregroundMaterial = createFragmentForegroundMaterial(resource.texture)
       const mesh = new THREE.InstancedMesh(bucket.geometry, accumMaterial, bucket.maxFragments)
       const basePositions = new Float32Array(bucket.maxFragments * 3)
       const currentPositions = new Float32Array(bucket.maxFragments * 3)
@@ -1577,6 +1676,7 @@ const initScene = async () => {
       fragmentMeshes.push(mesh)
       fragmentAccumMaterials.push(accumMaterial)
       fragmentRevealMaterials.push(revealMaterial)
+      fragmentForegroundMaterials.push(foregroundMaterial)
     }
   }
 
@@ -1641,6 +1741,11 @@ const cleanupScene = () => {
     fragmentRevealMaterials[index] = null
   }
 
+  for (let index = 0; index < fragmentForegroundMaterials.length; index += 1) {
+    fragmentForegroundMaterials[index]?.dispose()
+    fragmentForegroundMaterials[index] = null
+  }
+
   for (let index = 0; index < fragmentTextures.length; index += 1) {
     fragmentTextures[index]?.dispose()
     fragmentTextures[index] = null
@@ -1650,6 +1755,7 @@ const cleanupScene = () => {
   fragmentTextures.length = 0
   fragmentAccumMaterials.length = 0
   fragmentRevealMaterials.length = 0
+  fragmentForegroundMaterials.length = 0
   totalFragmentCount = 0
   perfSampleStartTime = 0
   perfSampleFrameCount = 0
