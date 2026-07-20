@@ -9,6 +9,8 @@ import {
   getNearestOrientationForProject,
   getNearestSnapTarget,
   type ProjectOrientation,
+  type SphereLayoutMode,
+  type SphereLayoutOptions,
 } from './home-hero/orientation'
 import { computeProjectOpacities } from './home-hero/opacity'
 
@@ -110,13 +112,10 @@ let unavailableReported = false
 
 const fragmentGroup = new THREE.Group()
 const projectOrientations: ProjectOrientation[] = []
-const worldXAxis = new THREE.Vector3(1, 0, 0)
-const worldYAxis = new THREE.Vector3(0, 1, 0)
 
 const tempQuaternion = new THREE.Quaternion()
 const tempViewDirection = new THREE.Vector3()
 const tempCameraDirection = new THREE.Vector3()
-const tempBasis = new THREE.Matrix4()
 const tempPosition = new THREE.Vector3()
 const tempScale = new THREE.Vector3()
 const tempAxisX = new THREE.Vector3()
@@ -190,10 +189,24 @@ const FRAGMENT_GRID_ROWS = 20
 const FRAGMENT_GRID_JITTER = 0.28
 const FRAGMENT_DOMINO_CHANCE = 0.38
 const FRAGMENT_TRIANGLE_CHANCE = 0.42
-const ROTATION_LERP = 0.1
+const ROTATION_LERP = 0.08
 const ROTATION_DRAG_FACTOR = 0.001
 const ROTATION_X_LERP = 0.12
-const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(64)
+// Layout modes: horizontal (current), vertical, spiral, or random.
+const SPHERE_LAYOUT_MODE: SphereLayoutMode = 'random'
+const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(90)
+const SPHERE_LAYOUT_YAW_AMPLITUDE = THREE.MathUtils.degToRad(70)
+const SPHERE_LAYOUT_TURNS = 1
+const SPHERE_LAYOUT_PHASE = 0
+const SPHERE_LAYOUT_RANDOM_SEED = 0x51f15e
+const SPHERE_LAYOUT = {
+  mode: SPHERE_LAYOUT_MODE,
+  pitchAmplitude: SPHERE_LAYOUT_PITCH_AMPLITUDE,
+  yawAmplitude: SPHERE_LAYOUT_YAW_AMPLITUDE,
+  turns: SPHERE_LAYOUT_TURNS,
+  phase: SPHERE_LAYOUT_PHASE,
+  randomSeed: SPHERE_LAYOUT_RANDOM_SEED,
+} satisfies SphereLayoutOptions
 const IDLE_PROJECT_ADVANCE_DELAY_MS = 7000
 const DRAG_RELEASE_SNAP_DELAY_MS = 220
 const INTRO_DELAY_MS = 140
@@ -429,7 +442,7 @@ const setupProjectOrientations = () => {
 
   if (!projects.length) return
 
-  const orientations = buildProjectOrientations(projects.length, SPHERE_LAYOUT_PITCH_AMPLITUDE)
+  const orientations = buildProjectOrientations(projects.length, SPHERE_LAYOUT)
   for (let index = 0; index < orientations.length; index += 1) {
     projectOrientations[index] = orientations[index]
     projectAlignmentScores[index] = 0
@@ -596,24 +609,20 @@ const buildFragmentResource = async (projectIndex: number) => {
   texture.generateMipmaps = true
 
   const random = createSeededRandom(hashString(`${project.title}:${project.link}:${projectIndex}`))
-  const axis = projectOrientations[projectIndex]?.axis
-  if (!axis) {
+  const orientation = projectOrientations[projectIndex]
+  if (!orientation) {
     texture.dispose()
     return null
   }
-  const upReference = Math.abs(axis.dot(worldYAxis)) > 0.94 ? worldXAxis : worldYAxis
-  const planeUp = tempAxisY
-    .copy(upReference)
-    .addScaledVector(axis, -upReference.dot(axis))
-    .normalize()
-    .clone()
-  const planeAxis = tempAxisX.crossVectors(planeUp, axis).normalize().clone()
+  const planeQuaternion = new THREE.Quaternion()
+    .setFromEuler(new THREE.Euler(orientation.pitch, orientation.yaw, 0))
+    .invert()
+  const planeAxis = tempAxisX.set(1, 0, 0).applyQuaternion(planeQuaternion).clone()
+  const planeUp = tempAxisY.set(0, 1, 0).applyQuaternion(planeQuaternion).clone()
+  const axis = orientation.axis
   const tessellationVertices = buildTessellationVertices(random)
   const occupied = new Array(FRAGMENT_GRID_COLUMNS * FRAGMENT_GRID_ROWS).fill(false)
   const fragments: FragmentPolygon[] = []
-
-  tempBasis.makeBasis(planeAxis, planeUp, axis)
-  tempQuaternion.setFromRotationMatrix(tempBasis)
 
   const addPolygon = (sourceCorners: FragmentCorner[]) => {
     const centerX = sourceCorners.reduce((sum, corner) => sum + corner.x, 0) / sourceCorners.length
@@ -624,7 +633,7 @@ const buildFragmentResource = async (projectIndex: number) => {
     tempPosition.addScaledVector(planeUp, centerY)
     tempPosition.addScaledVector(axis, depthOffset)
     tempScale.set(1, 1, 1)
-    tempMatrix.compose(tempPosition, tempQuaternion, tempScale)
+    tempMatrix.compose(tempPosition, planeQuaternion, tempScale)
 
     fragments.push({
       corners: sourceCorners.map((corner) => ({
