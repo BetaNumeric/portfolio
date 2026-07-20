@@ -8,7 +8,16 @@ import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import { installArrowKeyScroll } from './utils/arrowKeyScroll'
 import { installSmoothWheelScroll } from './utils/smoothWheelScroll'
 
-const LegacyHomeHero = defineAsyncComponent(() => import('./components/HomeHero.vue'))
+const interactiveHomeHeroUnavailable = ref(false)
+const forceSimpleHomeHero = ref(false)
+
+const InteractiveHomeHero = defineAsyncComponent({
+  loader: () => import('./components/HomeHero.vue'),
+  onError(_error, _retry, fail) {
+    interactiveHomeHeroUnavailable.value = true
+    fail()
+  },
+})
 
 // https://vitepress.dev/reference/runtime-api#usedata
 const { site, frontmatter } = useData()
@@ -54,11 +63,22 @@ const selectRelatedProjects = (salt: string) => {
 const footerProjects = computed(() => selectRelatedProjects('footer'))
 const isHome = computed(() => frontmatter.value.layout === 'home' || frontmatter.value.home)
 const isProject = computed(() => frontmatter.value.layout === 'project')
-const showLegacyHomeHero = ref(false)
+const showInteractiveHomeHero = computed(() => {
+  return isHome.value && !forceSimpleHomeHero.value && !interactiveHomeHeroUnavailable.value
+})
 
-const syncLegacyHomeHeroFromUrl = () => {
+const syncHomeHeroPreferenceFromUrl = () => {
   if (typeof window === 'undefined') return
-  showLegacyHomeHero.value = new URLSearchParams(window.location.search).get('hero') === 'legacy'
+  const wasForcedSimple = forceSimpleHomeHero.value
+  forceSimpleHomeHero.value = new URLSearchParams(window.location.search).get('hero') === 'simple'
+
+  if (wasForcedSimple && !forceSimpleHomeHero.value) {
+    interactiveHomeHeroUnavailable.value = false
+  }
+}
+
+const handleInteractiveHomeHeroUnavailable = () => {
+  interactiveHomeHeroUnavailable.value = true
 }
 
 const projects = computed(() => frontmatter.value.projects ?? projectsData)
@@ -93,6 +113,104 @@ const availableProjectTags = computed(() => {
     })
     .map(([tag]) => tag)
 })
+
+const projectFilterRef = ref<HTMLElement | null>(null)
+const projectFilterTriggerRef = ref<HTMLButtonElement | null>(null)
+const projectFilterOpen = ref(false)
+const projectFilterHighlightedIndex = ref(0)
+const projectFilterOptions = computed(() => [
+  { value: 'all', label: 'All Projects' },
+  ...availableProjectTags.value.map((tag) => ({ value: tag, label: tag })),
+])
+const activeProjectTagLabel = computed(() => {
+  return projectFilterOptions.value.find((option) => option.value === activeProjectTag.value)?.label ?? 'All Projects'
+})
+
+const focusProjectFilterOption = async (index: number) => {
+  await nextTick()
+  const options = projectFilterRef.value?.querySelectorAll<HTMLButtonElement>('.project-filter__option')
+  options?.[index]?.focus()
+}
+
+const openProjectFilter = async (focusOption = false) => {
+  const selectedIndex = projectFilterOptions.value.findIndex((option) => option.value === activeProjectTag.value)
+  projectFilterHighlightedIndex.value = Math.max(selectedIndex, 0)
+  projectFilterOpen.value = true
+  if (focusOption) await focusProjectFilterOption(projectFilterHighlightedIndex.value)
+}
+
+const closeProjectFilter = (restoreTriggerFocus = false) => {
+  projectFilterOpen.value = false
+  if (restoreTriggerFocus) projectFilterTriggerRef.value?.focus()
+}
+
+const toggleProjectFilter = () => {
+  if (projectFilterOpen.value) {
+    closeProjectFilter()
+  } else {
+    void openProjectFilter()
+  }
+}
+
+const selectProjectTag = async (value: string) => {
+  activeProjectTag.value = value
+  closeProjectFilter(true)
+  await nextTick()
+  syncProjectCardsWithViewport()
+}
+
+const handleProjectFilterTriggerKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && projectFilterOpen.value) {
+    event.preventDefault()
+    closeProjectFilter()
+    return
+  }
+
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+  event.preventDefault()
+  void openProjectFilter(true)
+}
+
+const handleProjectFilterMenuKeydown = (event: KeyboardEvent) => {
+  const optionCount = projectFilterOptions.value.length
+  if (!optionCount) return
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeProjectFilter(true)
+    return
+  }
+
+  let nextIndex = projectFilterHighlightedIndex.value
+  if (event.key === 'ArrowDown') nextIndex = (nextIndex + 1) % optionCount
+  else if (event.key === 'ArrowUp') nextIndex = (nextIndex - 1 + optionCount) % optionCount
+  else if (event.key === 'Home') nextIndex = 0
+  else if (event.key === 'End') nextIndex = optionCount - 1
+  else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    void selectProjectTag(projectFilterOptions.value[nextIndex].value)
+    return
+  } else {
+    return
+  }
+
+  event.preventDefault()
+  projectFilterHighlightedIndex.value = nextIndex
+  void focusProjectFilterOption(nextIndex)
+}
+
+const handleProjectFilterFocusOut = (event: FocusEvent) => {
+  const nextTarget = event.relatedTarget
+  if (nextTarget instanceof Node && projectFilterRef.value?.contains(nextTarget)) return
+  closeProjectFilter()
+}
+
+const handleProjectFilterOutsidePointer = (event: PointerEvent) => {
+  if (!projectFilterOpen.value) return
+  const target = event.target
+  if (target instanceof Node && projectFilterRef.value?.contains(target)) return
+  closeProjectFilter()
+}
 
 const filteredProjects = computed(() => {
   if (activeProjectTag.value === 'all') return projects.value as ProjectCard[]
@@ -400,11 +518,12 @@ const syncProjectCardsWithViewport = () => {
 onMounted(() => {
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   homeGridLayout.value = resolveHomeGridLayout()
-  syncLegacyHomeHeroFromUrl()
+  syncHomeHeroPreferenceFromUrl()
   removeArrowKeyScroll = installArrowKeyScroll()
   removeSmoothWheelScroll = installSmoothWheelScroll()
   window.addEventListener('scroll', handleScroll)
-  window.addEventListener('popstate', syncLegacyHomeHeroFromUrl)
+  window.addEventListener('popstate', syncHomeHeroPreferenceFromUrl)
+  document.addEventListener('pointerdown', handleProjectFilterOutsidePointer)
 
   observer = new IntersectionObserver(
     (entries) => {
@@ -428,7 +547,8 @@ onUnmounted(() => {
   removeSmoothWheelScroll?.()
   removeSmoothWheelScroll = null
   window.removeEventListener('scroll', handleScroll)
-  window.removeEventListener('popstate', syncLegacyHomeHeroFromUrl)
+  window.removeEventListener('popstate', syncHomeHeroPreferenceFromUrl)
+  document.removeEventListener('pointerdown', handleProjectFilterOutsidePointer)
   observer?.disconnect()
 })
 
@@ -448,7 +568,8 @@ const resetProjectCards = () => {
 watch(
   () => route.path,
   () => {
-    syncLegacyHomeHeroFromUrl()
+    syncHomeHeroPreferenceFromUrl()
+    closeProjectFilter()
     closeLightbox()
     mobileNavOpen.value = false
     if (isHome.value) {
@@ -521,8 +642,8 @@ const handleLeave = (event: MouseEvent) => {
       </div>
     </header>
 
-    <section v-if="isHome && showLegacyHomeHero" class="legacy-home-hero" aria-label="Featured projects">
-      <LegacyHomeHero />
+    <section v-if="showInteractiveHomeHero" class="interactive-home-hero" aria-label="Featured projects">
+      <InteractiveHomeHero @unavailable="handleInteractiveHomeHeroUnavailable" />
     </section>
 
     <!-- Full Width Project Hero -->
@@ -544,29 +665,65 @@ const handleLeave = (event: MouseEvent) => {
       class="project-hero-fullscreen"
       :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"
     ></div>
-    <main class="site-main" :class="{ 'is-home': isHome, 'is-home--legacy': isHome && showLegacyHomeHero }">
+    <main class="site-main" :class="{ 'is-home': isHome, 'is-home--interactive': showInteractiveHomeHero }">
       <template v-if="isHome">
-        <header v-if="!showLegacyHomeHero" class="home-intro">
+        <header v-if="!showInteractiveHomeHero" class="home-intro">
           <p class="home-intro__role">{{ frontmatter.homeRole }}</p>
           <h1>{{ frontmatter.homeHeading || site.title }}</h1>
           <p class="home-intro__text">{{ frontmatter.homeIntro }}</p>
         </header>
 
         <div class="project-grid-controls" v-if="projects.length > 1">
-          <label v-if="availableProjectTags.length" class="project-filter" for="project-tag-filter">
+          <div
+            v-if="availableProjectTags.length"
+            ref="projectFilterRef"
+            class="project-filter"
+            @focusout="handleProjectFilterFocusOut"
+          >
             <span class="project-filter__label project-filter__label--sr-only">Filter projects by tag</span>
-            <select
+            <button
+              ref="projectFilterTriggerRef"
               id="project-tag-filter"
-              v-model="activeProjectTag"
-              class="project-filter__select"
+              class="project-filter__trigger"
+              type="button"
               aria-label="Filter projects by tag"
+              aria-haspopup="listbox"
+              :aria-expanded="projectFilterOpen"
+              aria-controls="project-tag-options"
+              @click="toggleProjectFilter"
+              @keydown="handleProjectFilterTriggerKeydown"
             >
-              <option value="all">All Projects</option>
-              <option v-for="tag in availableProjectTags" :key="tag" :value="tag">
-                {{ tag }}
-              </option>
-            </select>
-          </label>
+              <span>{{ activeProjectTagLabel }}</span>
+              <span class="project-filter__chevron" aria-hidden="true"></span>
+            </button>
+            <div
+              v-if="projectFilterOpen"
+              id="project-tag-options"
+              class="project-filter__menu"
+              role="listbox"
+              aria-label="Project categories"
+              @keydown="handleProjectFilterMenuKeydown"
+            >
+              <button
+                v-for="(option, index) in projectFilterOptions"
+                :key="option.value"
+                class="project-filter__option"
+                :class="{ 'is-selected': option.value === activeProjectTag }"
+                type="button"
+                role="option"
+                :aria-selected="option.value === activeProjectTag"
+                :tabindex="projectFilterHighlightedIndex === index ? 0 : -1"
+                @mouseenter="projectFilterHighlightedIndex = index"
+                @focus="projectFilterHighlightedIndex = index"
+                @click="selectProjectTag(option.value)"
+              >
+                <span>{{ option.label }}</span>
+                <span class="project-filter__check" aria-hidden="true">
+                  {{ option.value === activeProjectTag ? '✓' : '' }}
+                </span>
+              </button>
+            </div>
+          </div>
 
           <div class="layout-toggle" role="group" aria-label="Project card layout">
             <button

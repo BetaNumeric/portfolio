@@ -12,6 +12,10 @@ import {
 } from './home-hero/orientation'
 import { computeProjectOpacities } from './home-hero/opacity'
 
+const emit = defineEmits<{
+  unavailable: []
+}>()
+
 type FragmentResource = {
   buckets: FragmentBucketResource[]
   maxFragments: number
@@ -95,11 +99,14 @@ let compositeMaterial: THREE.ShaderMaterial | null = null
 let compositeQuad: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial> | null = null
 let animationFrame: number | null = null
 let resizeObserver: ResizeObserver | null = null
+let pageWindowResizeObserver: ResizeObserver | null = null
+let pageWindowFrame: number | null = null
 let disposed = false
 let lastFrameTime = 0
 let perfSampleStartTime = 0
 let perfSampleFrameCount = 0
 let totalFragmentCount = 0
+let unavailableReported = false
 
 const fragmentGroup = new THREE.Group()
 const projectOrientations: ProjectOrientation[] = []
@@ -115,7 +122,6 @@ const tempScale = new THREE.Vector3()
 const tempAxisX = new THREE.Vector3()
 const tempAxisY = new THREE.Vector3()
 const tempMatrix = new THREE.Matrix4()
-const tempRenderSize = new THREE.Vector2()
 const tempGroupQuaternion = new THREE.Quaternion()
 const tempPlaneNormal = new THREE.Vector3()
 const tempGroupWorldPosition = new THREE.Vector3()
@@ -132,6 +138,7 @@ const tempSpinQuaternion = new THREE.Quaternion()
 const tempComposedQuaternion = new THREE.Quaternion()
 const tempSpinEuler = new THREE.Euler()
 const tempLocalViewAxis = new THREE.Vector3()
+const tempRenderSize = new THREE.Vector2()
 const projectAlignmentScores: number[] = []
 const projectDominanceRanges: number[] = []
 const hoverRaycaster = new THREE.Raycaster()
@@ -172,8 +179,8 @@ const introState = {
   progress: 0,
 }
 
-const VIEW_HEIGHT = 100
-const IMAGE_PLANE_HEIGHT = 77
+const VIEW_HEIGHT = 10
+const IMAGE_PLANE_HEIGHT = 30
 const NORMALIZED_IMAGE_ASPECT = 16 / 9
 const IMAGE_PLANE_WIDTH = IMAGE_PLANE_HEIGHT * NORMALIZED_IMAGE_ASPECT
 const DEPTH_SPREAD = 92
@@ -186,7 +193,7 @@ const FRAGMENT_TRIANGLE_CHANCE = 0.42
 const ROTATION_LERP = 0.1
 const ROTATION_DRAG_FACTOR = 0.001
 const ROTATION_X_LERP = 0.12
-const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(55)
+const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(64)
 const IDLE_PROJECT_ADVANCE_DELAY_MS = 7000
 const DRAG_RELEASE_SNAP_DELAY_MS = 220
 const INTRO_DELAY_MS = 140
@@ -724,13 +731,24 @@ const buildFragmentResources = async () => {
 }
 
 const updateHoverPointerFromEvent = (event: PointerEvent) => {
-  if (!canvasHost.value || !camera || pointerState.isDown) return
+  if (!canvasHost.value || !camera || pointerState.isDown || event.pointerType === 'touch') return
 
   const rect = canvasHost.value.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return
 
-  const normalizedX = clamp((event.clientX - rect.left) / rect.width, 0, 1)
-  const normalizedY = clamp((event.clientY - rect.top) / rect.height, 0, 1)
+  const isInsideCanvasBounds =
+    event.clientX >= rect.left &&
+    event.clientX <= rect.right &&
+    event.clientY >= rect.top &&
+    event.clientY <= rect.bottom
+
+  if (!isInsideCanvasBounds) {
+    clearHoverPointer()
+    return
+  }
+
+  const normalizedX = (event.clientX - rect.left) / rect.width
+  const normalizedY = (event.clientY - rect.top) / rect.height
   const now = performance.now()
   hoverPointerState.ndc.set(normalizedX * 2 - 1, -(normalizedY * 2 - 1))
   hoverPointerState.inside = true
@@ -1310,6 +1328,43 @@ const updateActiveProject = () => {
   return bestScore
 }
 
+const positionFragmentGroupInCanvas = () => {
+  if (!canvasHost.value) return
+  const height = Math.max(canvasHost.value.clientHeight, 1)
+  const canvasRect = canvasHost.value.getBoundingClientRect()
+  const heroRect = canvasHost.value.parentElement?.getBoundingClientRect()
+  if (!heroRect) return
+
+  const heroCenterInCanvas = heroRect.top + heroRect.height * 0.5 - canvasRect.top
+  fragmentGroup.position.y = VIEW_HEIGHT * (0.5 - heroCenterInCanvas / height)
+}
+
+const updateCanvasPageWindow = () => {
+  if (!canvasHost.value?.parentElement) return
+
+  const footer = document.querySelector('.home-footer') as HTMLElement | null
+  const parentRect = canvasHost.value.parentElement.getBoundingClientRect()
+  const parentDocumentTop = parentRect.top + window.scrollY
+  const pageBottom = footer
+    ? footer.getBoundingClientRect().bottom + window.scrollY
+    : document.documentElement.scrollHeight
+  const maxCanvasTop = Math.max(pageBottom - window.innerHeight, 0)
+  const canvasDocumentTop = clamp(window.scrollY, 0, maxCanvasTop)
+  const canvasHeight = Math.max(Math.min(window.innerHeight, pageBottom - canvasDocumentTop), 1)
+
+  canvasHost.value.style.top = `${Math.round(canvasDocumentTop - parentDocumentTop)}px`
+  canvasHost.value.style.height = `${Math.round(canvasHeight)}px`
+  positionFragmentGroupInCanvas()
+}
+
+const scheduleCanvasPageWindowUpdate = () => {
+  if (pageWindowFrame !== null) return
+  pageWindowFrame = window.requestAnimationFrame(() => {
+    pageWindowFrame = null
+    updateCanvasPageWindow()
+  })
+}
+
 const resizeScene = () => {
   if (!canvasHost.value || !camera || !renderer) return
 
@@ -1343,6 +1398,8 @@ const resizeScene = () => {
   const targetPlaneWidthWorld = targetNavbarContentWidthPx * unitsPerPixel
   const fragmentScale = targetPlaneWidthWorld / IMAGE_PLANE_WIDTH
   fragmentGroup.scale.setScalar(fragmentScale)
+
+  positionFragmentGroupInCanvas()
 }
 
 const updatePerformanceDebug = (time: number) => {
@@ -1397,6 +1454,18 @@ const renderProjectForeground = (projectIndex: number, opacity: number) => {
       if (revealMaterial) mesh.material = revealMaterial
     }
   }
+}
+
+const reportUnavailable = () => {
+  if (unavailableReported || disposed) return
+  unavailableReported = true
+  webglReady.value = false
+  emit('unavailable')
+}
+
+const handleWebGLContextLost = (event: Event) => {
+  event.preventDefault()
+  reportUnavailable()
 }
 
 const tick = (time: number) => {
@@ -1558,7 +1627,6 @@ const handlePointerDown = (event: PointerEvent) => {
 }
 
 const handlePointerMove = (event: PointerEvent) => {
-  updateHoverPointerFromEvent(event)
   if (!pointerState.isDown) return
 
   const deltaX = event.clientX - pointerState.startX
@@ -1620,6 +1688,7 @@ const initScene = async () => {
   })
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(0x000000, 0)
+  renderer.domElement.addEventListener('webglcontextlost', handleWebGLContextLost)
 
   canvasHost.value.appendChild(renderer.domElement)
   scene.add(fragmentGroup)
@@ -1735,6 +1804,10 @@ const initScene = async () => {
     }
   }
 
+  if (!totalFragmentCount) {
+    throw new Error('No project fragments could be initialized')
+  }
+
   debugInfo.value.totalFragments = totalFragmentCount
   debugInfo.value.visibleFragments = totalFragmentCount
   debugInfo.value.fps = 0
@@ -1773,9 +1846,17 @@ const cleanupScene = () => {
     canvasHost.value.removeEventListener('pointerleave', handlePointerUp)
     canvasHost.value.removeEventListener('pointercancel', handlePointerUp)
   }
+  window.removeEventListener('pointermove', updateHoverPointerFromEvent, true)
 
   resizeObserver?.disconnect()
   resizeObserver = null
+  pageWindowResizeObserver?.disconnect()
+  pageWindowResizeObserver = null
+  window.removeEventListener('scroll', scheduleCanvasPageWindowUpdate)
+  if (pageWindowFrame !== null) {
+    cancelAnimationFrame(pageWindowFrame)
+    pageWindowFrame = null
+  }
 
   for (let index = 0; index < fragmentMeshes.length; index += 1) {
     const mesh = fragmentMeshes[index]
@@ -1836,6 +1917,7 @@ const cleanupScene = () => {
 
   if (renderer) {
     renderer.setRenderTarget(null)
+    renderer.domElement.removeEventListener('webglcontextlost', handleWebGLContextLost)
     renderer.dispose()
     renderer.domElement.remove()
     renderer = null
@@ -1846,9 +1928,13 @@ const cleanupScene = () => {
 }
 
 onMounted(async () => {
-  if (!canvasHost.value || !projects.length) return
+  if (!canvasHost.value || !projects.length) {
+    reportUnavailable()
+    return
+  }
 
   window.addEventListener('keydown', handleDebugShortcut)
+  window.addEventListener('pointermove', updateHoverPointerFromEvent, { capture: true, passive: true })
   canvasHost.value.addEventListener('pointerdown', handlePointerDown)
   canvasHost.value.addEventListener('pointermove', handlePointerMove)
   canvasHost.value.addEventListener('pointerup', handlePointerUp)
@@ -1860,10 +1946,21 @@ onMounted(async () => {
   })
   resizeObserver.observe(canvasHost.value)
 
+  pageWindowResizeObserver = new ResizeObserver(() => {
+    scheduleCanvasPageWindowUpdate()
+  })
+  const pageMain = document.querySelector('.site-main')
+  const pageFooter = document.querySelector('.home-footer')
+  if (pageMain) pageWindowResizeObserver.observe(pageMain)
+  if (pageFooter) pageWindowResizeObserver.observe(pageFooter)
+  if (canvasHost.value.parentElement) pageWindowResizeObserver.observe(canvasHost.value.parentElement)
+  window.addEventListener('scroll', scheduleCanvasPageWindowUpdate, { passive: true })
+  scheduleCanvasPageWindowUpdate()
+
   try {
     await initScene()
   } catch {
-    webglReady.value = false
+    reportUnavailable()
   }
 })
 
@@ -1875,8 +1972,6 @@ onUnmounted(() => {
 
 <template>
   <div class="home-hero">
-    <div class="hero-atmosphere" aria-hidden="true"></div>
-
     <div
       ref="canvasHost"
       :class="['hero-canvas', { 'is-dragging': isDragging }]"
@@ -1923,28 +2018,22 @@ onUnmounted(() => {
 <style scoped>
 .home-hero {
   position: relative;
+  z-index: 0;
   width: 100%;
   height: 80vh;
   min-height: 560px;
   margin-top: 60px;
-  overflow: hidden;
-  border-bottom: 1px solid var(--site-border);
-}
-
-.hero-atmosphere {
-  position: absolute;
-  inset: -8% -12%;
-  background:
-    linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.08) 32%, rgba(0, 0, 0, 0.52)),
-    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.08), transparent 58%);
-  pointer-events: none;
-  z-index: 1;
+  overflow: visible;
+  background: transparent;
 }
 
 .hero-canvas {
   position: absolute;
-  inset: 0;
-  z-index: 2;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 0;
   cursor: grab;
   touch-action: none;
 }
