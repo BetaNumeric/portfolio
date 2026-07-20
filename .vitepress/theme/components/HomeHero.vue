@@ -70,6 +70,7 @@ const projects = allProjects.slice(0, PROJECT_LIMIT)
 const canvasHost = ref<HTMLDivElement | null>(null)
 const activeProjectIndex = ref(0)
 const isDragging = ref(false)
+const isDollyZooming = ref(false)
 const webglReady = ref(false)
 const showDebug = ref(false)
 const debugInfo = ref({
@@ -87,7 +88,9 @@ const chevronIcon = withBase('/assets/icons/chevron_b.svg')
 
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
-let camera: THREE.OrthographicCamera | null = null
+let camera: THREE.OrthographicCamera | THREE.PerspectiveCamera | null = null
+let orthographicCamera: THREE.OrthographicCamera | null = null
+let perspectiveCamera: THREE.PerspectiveCamera | null = null
 const fragmentMeshes: Array<THREE.InstancedMesh | null> = []
 const fragmentTextures: Array<THREE.Texture | null> = []
 const fragmentAccumMaterials: Array<THREE.ShaderMaterial | null> = []
@@ -165,11 +168,22 @@ const hoverPointerState = {
 
 const pointerState = {
   isDown: false,
+  hasDragged: false,
   startX: 0,
   startY: 0,
   startRotY: 0,
   startRotX: 0,
   lastMoveAt: 0,
+}
+
+const dollyZoomState = {
+  mix: 0,
+  fromMix: 0,
+  targetMix: 0,
+  transitionStart: 0,
+  longPressTimer: null as number | null,
+  pressEligible: false,
+  engaged: false,
 }
 
 const introState = {
@@ -178,8 +192,8 @@ const introState = {
   progress: 0,
 }
 
-const VIEW_HEIGHT = 10
-const IMAGE_PLANE_HEIGHT = 30
+const VIEW_HEIGHT = 1
+const IMAGE_PLANE_HEIGHT = 32
 const NORMALIZED_IMAGE_ASPECT = 16 / 9
 const IMAGE_PLANE_WIDTH = IMAGE_PLANE_HEIGHT * NORMALIZED_IMAGE_ASPECT
 const DEPTH_SPREAD = 92
@@ -207,6 +221,13 @@ const SPHERE_LAYOUT = {
   phase: SPHERE_LAYOUT_PHASE,
   randomSeed: SPHERE_LAYOUT_RANDOM_SEED,
 } satisfies SphereLayoutOptions
+const DOLLY_LONG_PRESS_DELAY_MS = 520
+const DOLLY_DRAG_CANCEL_DISTANCE_PX = 7
+const DOLLY_ENTER_DURATION_MS = 900
+const DOLLY_EXIT_DURATION_MS = 720
+const DOLLY_ORTHO_EQUIVALENT_FOCAL_LENGTH_MM = 100000
+const DOLLY_TARGET_FOCAL_LENGTH_MM = 70
+const DOLLY_ALIGNMENT_THRESHOLD = Math.cos(THREE.MathUtils.degToRad(10))
 const IDLE_PROJECT_ADVANCE_DELAY_MS = 7000
 const DRAG_RELEASE_SNAP_DELAY_MS = 220
 const INTRO_DELAY_MS = 140
@@ -322,12 +343,74 @@ const getTargetNavbarContentWidthPx = () => {
 
 
 const setCameraPose = (positionY: number, positionZ: number, zoom: number) => {
-  if (!camera) return
+  if (!orthographicCamera) return
 
-  camera.position.set(0, positionY, positionZ)
-  camera.zoom = zoom
-  camera.lookAt(0, 0, 0)
-  camera.updateProjectionMatrix()
+  orthographicCamera.position.set(0, positionY, positionZ)
+  orthographicCamera.zoom = zoom
+  orthographicCamera.lookAt(0, 0, 0)
+  orthographicCamera.updateProjectionMatrix()
+  camera = orthographicCamera
+}
+
+const updateDollyZoomCamera = (time: number) => {
+  if (!orthographicCamera || !perspectiveCamera) return
+
+  const duration = dollyZoomState.targetMix > dollyZoomState.fromMix
+    ? DOLLY_ENTER_DURATION_MS
+    : DOLLY_EXIT_DURATION_MS
+  const progress = clamp((time - dollyZoomState.transitionStart) / Math.max(duration, 1), 0, 1)
+  const eased = easeInOutCubic(progress)
+  dollyZoomState.mix = lerp(dollyZoomState.fromMix, dollyZoomState.targetMix, eased)
+
+  if (dollyZoomState.mix <= 0.0001 && dollyZoomState.targetMix === 0 && progress >= 1) {
+    dollyZoomState.mix = 0
+    camera = orthographicCamera
+    return
+  }
+
+  if (dollyZoomState.mix <= 0) {
+    camera = orthographicCamera
+    return
+  }
+
+  const focalLength = Math.exp(
+    lerp(
+      Math.log(DOLLY_ORTHO_EQUIVALENT_FOCAL_LENGTH_MM),
+      Math.log(DOLLY_TARGET_FOCAL_LENGTH_MM),
+      dollyZoomState.mix
+    )
+  )
+  perspectiveCamera.setFocalLength(focalLength)
+  const verticalFov = THREE.MathUtils.degToRad(perspectiveCamera.fov)
+  const cameraDistance = VIEW_HEIGHT / (2 * Math.tan(verticalFov * 0.5))
+  perspectiveCamera.position.set(0, 0, cameraDistance)
+  perspectiveCamera.lookAt(0, 0, 0)
+  perspectiveCamera.updateProjectionMatrix()
+  camera = perspectiveCamera
+}
+
+const setDollyZoomTarget = (targetMix: 0 | 1, time = performance.now()) => {
+  updateDollyZoomCamera(time)
+  dollyZoomState.fromMix = dollyZoomState.mix
+  dollyZoomState.targetMix = targetMix
+  dollyZoomState.transitionStart = time
+}
+
+const cancelDollyLongPress = () => {
+  if (dollyZoomState.longPressTimer !== null) {
+    window.clearTimeout(dollyZoomState.longPressTimer)
+    dollyZoomState.longPressTimer = null
+  }
+  dollyZoomState.pressEligible = false
+}
+
+const releaseDollyZoom = () => {
+  cancelDollyLongPress()
+  if (dollyZoomState.engaged || dollyZoomState.targetMix > 0) {
+    setDollyZoomTarget(0)
+  }
+  dollyZoomState.engaged = false
+  isDollyZooming.value = false
 }
 
 const stopIntroAnimation = (time = performance.now()) => {
@@ -1375,19 +1458,25 @@ const scheduleCanvasPageWindowUpdate = () => {
 }
 
 const resizeScene = () => {
-  if (!canvasHost.value || !camera || !renderer) return
+  if (!canvasHost.value || !orthographicCamera || !perspectiveCamera || !renderer) return
 
   const width = Math.max(canvasHost.value.clientWidth, 1)
   const height = Math.max(canvasHost.value.clientHeight, 1)
   const aspect = width / height
 
-  camera.left = (-VIEW_HEIGHT * aspect) / 2
-  camera.right = (VIEW_HEIGHT * aspect) / 2
-  camera.top = VIEW_HEIGHT / 2
-  camera.bottom = -VIEW_HEIGHT / 2
-  camera.near = 0.1
-  camera.far = 800
-  camera.updateProjectionMatrix()
+  orthographicCamera.left = (-VIEW_HEIGHT * aspect) / 2
+  orthographicCamera.right = (VIEW_HEIGHT * aspect) / 2
+  orthographicCamera.top = VIEW_HEIGHT / 2
+  orthographicCamera.bottom = -VIEW_HEIGHT / 2
+  orthographicCamera.near = 0.1
+  orthographicCamera.far = 800
+  orthographicCamera.updateProjectionMatrix()
+
+  perspectiveCamera.aspect = aspect
+  perspectiveCamera.near = 0.1
+  perspectiveCamera.far = 50000
+  perspectiveCamera.updateProjectionMatrix()
+  updateDollyZoomCamera(performance.now())
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.setSize(width, height, false)
@@ -1482,6 +1571,7 @@ const tick = (time: number) => {
   const delta = lastFrameTime ? time - lastFrameTime : 16
   lastFrameTime = time
   const introActive = updateIntroAnimation(time)
+  updateDollyZoomCamera(time)
 
   if (!introActive && !pointerState.isDown && time - pointerState.lastMoveAt > IDLE_PROJECT_ADVANCE_DELAY_MS) {
     goToNextProject()
@@ -1621,16 +1711,67 @@ const tick = (time: number) => {
   animationFrame = window.requestAnimationFrame(tick)
 }
 
+const isPointerOverAlignedProject = (clientX: number, clientY: number) => {
+  if (!canvasHost.value || introState.active || !projectOrientations.length) return false
+
+  const activeAlignment = projectAlignmentScores[activeProjectIndex.value] ?? -1
+  if (activeAlignment < DOLLY_ALIGNMENT_THRESHOLD) return false
+
+  const canvasRect = canvasHost.value.getBoundingClientRect()
+  const heroRect = canvasHost.value.parentElement?.getBoundingClientRect()
+  if (!heroRect) return false
+
+  const projectWidth = Math.min(getTargetNavbarContentWidthPx(), canvasRect.width * 0.94)
+  const projectHeight = projectWidth / NORMALIZED_IMAGE_ASPECT
+  const projectCenterX = canvasRect.left + canvasRect.width * 0.5
+  const projectCenterY = heroRect.top + heroRect.height * 0.5
+
+  return (
+    Math.abs(clientX - projectCenterX) <= projectWidth * 0.5 &&
+    Math.abs(clientY - projectCenterY) <= projectHeight * 0.5
+  )
+}
+
+const scheduleDollyLongPress = (clientX: number, clientY: number) => {
+  cancelDollyLongPress()
+  if (!isPointerOverAlignedProject(clientX, clientY)) return
+
+  dollyZoomState.pressEligible = true
+  dollyZoomState.longPressTimer = window.setTimeout(() => {
+    dollyZoomState.longPressTimer = null
+    if (
+      !pointerState.isDown ||
+      pointerState.hasDragged ||
+      !dollyZoomState.pressEligible ||
+      !isPointerOverAlignedProject(clientX, clientY)
+    ) {
+      dollyZoomState.pressEligible = false
+      return
+    }
+
+    dollyZoomState.engaged = true
+    isDollyZooming.value = true
+    setDollyZoomTarget(1)
+  }, DOLLY_LONG_PRESS_DELAY_MS)
+}
+
 const handlePointerDown = (event: PointerEvent) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  const introWasActive = introState.active
   stopIntroAnimation()
   clearHoverPointer()
   pointerState.isDown = true
+  pointerState.hasDragged = false
   pointerState.startX = event.clientX
   pointerState.startY = event.clientY
   pointerState.startRotY = targetRotation.y
   pointerState.startRotX = targetRotationX.value
   pointerState.lastMoveAt = performance.now()
-  isDragging.value = true
+  isDragging.value = false
+
+  if (!introWasActive) {
+    scheduleDollyLongPress(event.clientX, event.clientY)
+  }
 
   canvasHost.value?.setPointerCapture(event.pointerId)
 }
@@ -1640,6 +1781,16 @@ const handlePointerMove = (event: PointerEvent) => {
 
   const deltaX = event.clientX - pointerState.startX
   const deltaY = event.clientY - pointerState.startY
+  const dragDistance = Math.hypot(deltaX, deltaY)
+
+  if (!pointerState.hasDragged) {
+    if (dragDistance < DOLLY_DRAG_CANCEL_DISTANCE_PX) return
+    pointerState.hasDragged = true
+    cancelDollyLongPress()
+    releaseDollyZoom()
+    isDragging.value = true
+  }
+
   targetRotation.y = pointerState.startRotY + deltaX * ROTATION_DRAG_FACTOR
   targetRotationX.value = pointerState.startRotX + deltaY * ROTATION_DRAG_FACTOR * 2
 
@@ -1647,6 +1798,8 @@ const handlePointerMove = (event: PointerEvent) => {
 }
 
 const handlePointerUp = (event: PointerEvent) => {
+  releaseDollyZoom()
+
   if (event.type === 'pointerleave' || event.type === 'pointercancel') {
     clearHoverPointer()
   }
@@ -1657,6 +1810,7 @@ const handlePointerUp = (event: PointerEvent) => {
   }
 
   pointerState.isDown = false
+  pointerState.hasDragged = false
   pointerState.lastMoveAt = performance.now()
   isDragging.value = false
 
@@ -1687,7 +1841,9 @@ const initScene = async () => {
   if (!canvasHost.value || !projects.length) return
 
   scene = new THREE.Scene()
-  camera = new THREE.OrthographicCamera()
+  orthographicCamera = new THREE.OrthographicCamera()
+  perspectiveCamera = new THREE.PerspectiveCamera()
+  camera = orthographicCamera
   setCameraPose(INTRO_START_CAMERA_Y, INTRO_START_CAMERA_Z, INTRO_START_ZOOM)
 
   renderer = new THREE.WebGLRenderer({
@@ -1839,6 +1995,13 @@ const cleanupScene = () => {
   disposed = true
   webglReady.value = false
   clearHoverPointer()
+  cancelDollyLongPress()
+  dollyZoomState.mix = 0
+  dollyZoomState.fromMix = 0
+  dollyZoomState.targetMix = 0
+  dollyZoomState.transitionStart = 0
+  dollyZoomState.engaged = false
+  isDollyZooming.value = false
   introState.active = false
   introState.startTime = 0
   introState.progress = 1
@@ -1934,6 +2097,8 @@ const cleanupScene = () => {
 
   scene = null
   camera = null
+  orthographicCamera = null
+  perspectiveCamera = null
 }
 
 onMounted(async () => {
@@ -1983,8 +2148,8 @@ onUnmounted(() => {
   <div class="home-hero">
     <div
       ref="canvasHost"
-      :class="['hero-canvas', { 'is-dragging': isDragging }]"
-      aria-label="Interactive floating collage of project image fragments"
+      :class="['hero-canvas', { 'is-dragging': isDragging, 'is-dolly-zooming': isDollyZooming }]"
+      aria-label="Interactive floating collage of project image fragments; hold an aligned project for a dolly zoom"
     ></div>
 
     <button
@@ -2049,6 +2214,10 @@ onUnmounted(() => {
 
 .hero-canvas.is-dragging {
   cursor: grabbing;
+}
+
+.hero-canvas.is-dolly-zooming {
+  cursor: zoom-in;
 }
 
 .hero-canvas :deep(canvas) {
