@@ -212,7 +212,28 @@ const SPHERE_LAYOUT_PITCH_AMPLITUDE = THREE.MathUtils.degToRad(90)
 const SPHERE_LAYOUT_YAW_AMPLITUDE = THREE.MathUtils.degToRad(70)
 const SPHERE_LAYOUT_TURNS = 1
 const SPHERE_LAYOUT_PHASE = 0
-const SPHERE_LAYOUT_RANDOM_SEED = 0x51f15e
+const FALLBACK_SPHERE_LAYOUT_RANDOM_SEED = 0x51f15e
+const PAGE_RANDOM_SEED_KEY = '__portfolioSphereLayoutRandomSeed'
+
+const createSphereLayoutRandomSeed = () => {
+  if (typeof window === 'undefined') return FALLBACK_SPHERE_LAYOUT_RANDOM_SEED
+
+  const pageWindow = window as Window & { [PAGE_RANDOM_SEED_KEY]?: number }
+  const existingSeed = pageWindow[PAGE_RANDOM_SEED_KEY]
+  if (existingSeed !== undefined) return existingSeed
+
+  const randomValues = new Uint32Array(1)
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(randomValues)
+  } else {
+    randomValues[0] = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0
+  }
+
+  pageWindow[PAGE_RANDOM_SEED_KEY] = randomValues[0]
+  return randomValues[0]
+}
+
+const SPHERE_LAYOUT_RANDOM_SEED = createSphereLayoutRandomSeed()
 const SPHERE_LAYOUT = {
   mode: SPHERE_LAYOUT_MODE,
   pitchAmplitude: SPHERE_LAYOUT_PITCH_AMPLITUDE,
@@ -223,6 +244,7 @@ const SPHERE_LAYOUT = {
 } satisfies SphereLayoutOptions
 const DOLLY_LONG_PRESS_DELAY_MS = 520
 const DOLLY_DRAG_CANCEL_DISTANCE_PX = 7
+const TOUCH_SCROLL_INTENT_RATIO = 1.15
 const DOLLY_ENTER_DURATION_MS = 900
 const DOLLY_EXIT_DURATION_MS = 720
 const DOLLY_ORTHO_EQUIVALENT_FOCAL_LENGTH_MM = 100000
@@ -315,6 +337,28 @@ const createSeededRandom = (seed: number) => {
     return ((result ^ (result >>> 14)) >>> 0) / 4294967296
   }
 }
+
+const createProjectNavigationOrder = (projectCount: number, shouldShuffle: boolean) => {
+  const order = Array.from({ length: projectCount }, (_, index) => index)
+  if (!shouldShuffle) return order
+
+  const random = createSeededRandom(SPHERE_LAYOUT_RANDOM_SEED ^ 0x9e3779b9)
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1))
+    const currentIndex = order[index]
+    order[index] = order[swapIndex]
+    order[swapIndex] = currentIndex
+  }
+
+  return order
+}
+
+const projectNavigationOrder = createProjectNavigationOrder(
+  projects.length,
+  SPHERE_LAYOUT_MODE === 'random'
+)
+
+const getFirstProjectIndex = () => projectNavigationOrder[0] ?? 0
 
 const getTargetNavbarContentWidthPx = () => {
   if (typeof document === 'undefined') return NAVBAR_CONTENT_WIDTH_FALLBACK_PX
@@ -432,7 +476,7 @@ const updateIntroAnimation = (time: number) => {
     introState.startTime = time
   }
 
-  const firstProjectOrientation = projectOrientations[0]
+  const firstProjectOrientation = projectOrientations[getFirstProjectIndex()]
   const finalYaw = firstProjectOrientation?.yaw ?? 0
   const finalPitch = firstProjectOrientation?.pitch ?? 0
   const elapsed = Math.max(time - introState.startTime - INTRO_DELAY_MS, 0)
@@ -477,9 +521,13 @@ const goToProjectIndex = (projectIndex: number) => {
 }
 
 const rotateToRelativeProject = (direction: number) => {
-  if (!projectOrientations.length) return
-  const nextIndex = activeProjectIndex.value + direction
-  goToProjectIndex(nextIndex)
+  if (!projectOrientations.length || !projectNavigationOrder.length) return
+
+  const currentOrderIndex = Math.max(projectNavigationOrder.indexOf(activeProjectIndex.value), 0)
+  const nextOrderIndex =
+    ((currentOrderIndex + direction) % projectNavigationOrder.length + projectNavigationOrder.length) %
+    projectNavigationOrder.length
+  goToProjectIndex(projectNavigationOrder[nextOrderIndex])
 }
 
 const goToPreviousProject = () => {
@@ -526,6 +574,7 @@ const setupProjectOrientations = () => {
   if (!projects.length) return
 
   const orientations = buildProjectOrientations(projects.length, SPHERE_LAYOUT)
+  activeProjectIndex.value = getFirstProjectIndex()
   for (let index = 0; index < orientations.length; index += 1) {
     projectOrientations[index] = orientations[index]
     projectAlignmentScores[index] = 0
@@ -1412,7 +1461,7 @@ const updateActiveProject = () => {
   }
 
   if (introState.active) {
-    activeProjectIndex.value = 0
+    activeProjectIndex.value = getFirstProjectIndex()
   } else if (bestIndex !== activeProjectIndex.value) {
     activeProjectIndex.value = bestIndex
   }
@@ -1773,7 +1822,11 @@ const handlePointerDown = (event: PointerEvent) => {
     scheduleDollyLongPress(event.clientX, event.clientY)
   }
 
-  canvasHost.value?.setPointerCapture(event.pointerId)
+  // Let touch input declare its direction before capturing it. This allows the
+  // browser to take over vertical gestures for normal page scrolling.
+  if (event.pointerType !== 'touch') {
+    canvasHost.value?.setPointerCapture(event.pointerId)
+  }
 }
 
 const handlePointerMove = (event: PointerEvent) => {
@@ -1785,6 +1838,28 @@ const handlePointerMove = (event: PointerEvent) => {
 
   if (!pointerState.hasDragged) {
     if (dragDistance < DOLLY_DRAG_CANCEL_DISTANCE_PX) return
+
+    if (event.pointerType === 'touch') {
+      const horizontalDistance = Math.abs(deltaX)
+      const verticalDistance = Math.abs(deltaY)
+
+      if (verticalDistance > horizontalDistance * TOUCH_SCROLL_INTENT_RATIO) {
+        cancelDollyLongPress()
+        releaseDollyZoom()
+        pointerState.isDown = false
+        pointerState.hasDragged = false
+        pointerState.lastMoveAt = performance.now()
+        isDragging.value = false
+        return
+      }
+
+      // Wait for a clearly horizontal gesture instead of claiming ambiguous
+      // diagonal movement that may be the beginning of a page scroll.
+      if (horizontalDistance <= verticalDistance * TOUCH_SCROLL_INTENT_RATIO) return
+
+      canvasHost.value?.setPointerCapture(event.pointerId)
+    }
+
     pointerState.hasDragged = true
     cancelDollyLongPress()
     releaseDollyZoom()
@@ -2209,7 +2284,7 @@ onUnmounted(() => {
   height: 100vh;
   z-index: 0;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y pinch-zoom;
 }
 
 .hero-canvas.is-dragging {
@@ -2224,6 +2299,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: pan-y pinch-zoom;
 }
 
 .hero-nav {
@@ -2411,6 +2487,16 @@ onUnmounted(() => {
     font-size: 0.74rem;
     letter-spacing: 0.06em;
     padding: 0.62rem 0.88rem;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .home-hero {
+    height: 58vh;
+    height: 58svh;
+    min-height: 380px;
+    max-height: 540px;
+    margin-top: 61px;
   }
 }
 </style>
