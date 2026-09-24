@@ -6,7 +6,7 @@ tags: [Interactive]
 heroImage: /projects/virtual_tours/1_raw.jpg
 heroComponent: LumaHeroEmbed
 heroEmbedUrl: "https://www.google.com/maps/embed?pb=!4v1718071352970!6m8!1m7!1sCAoSLEFGMVFpcFBJM0RuQ2NFTEZYZktRTXhMek9UZDM0S0IxTnZMMFljZEFvelhO!2m2!1d53.1022394401417!2d8.850079751220091!3f116.93254020764213!4f-10.164118128441316!5f0.7820865974627469"
-heroEmbedTitle: "Virual Tours Hero"
+heroEmbedTitle: "Virtual Tours Hero"
 previewMedia: /projects/virtual_tours/fishbowl_whirl.mp4
 ---
 
@@ -76,7 +76,7 @@ Then I removed all the people in the background that I captured by accident with
 
 ![cleanup](/projects/virtual_tours/4_cleanup.jpg)
 
-Then I uploaded the photos to TourBuilder (Panoskin). I organized them into different levels and then started connecting and aligning them with each other. I organized the photos in different levels to switch between them later. 
+Then I uploaded the photos to TourBuilder (Panoskin). I organized them into different levels so visitors could switch between floors, then connected and aligned the photos with each other.
 
 ![panoskin](/projects/virtual_tours/5_panoskin.jpg)
 

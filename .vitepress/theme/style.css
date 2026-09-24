@@ -86,6 +86,25 @@ a {
   flex-direction: column;
 }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 12px 16px;
+  color: var(--site-text);
+  background: var(--site-bg);
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+#main-content {
+  scroll-margin-top: 90px;
+}
+
 .navbar-trigger {
   position: fixed;
   top: 0;
@@ -103,9 +122,10 @@ a {
   padding: 18px 0;
   border-bottom: 1px solid var(--site-border);
   background: var(--site-header-bg);
-  position: sticky;
+  position: fixed;
+  width: 100%;
   top: 0;
-  z-index: 20;
+  z-index: 30;
   transform: translateY(0);
   transition: transform 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -114,13 +134,8 @@ a {
   transform: translateY(-100%);
 }
 
-.hero-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0;
-  background: #1a1a1a;
+.site-header:focus-within {
+  transform: translateY(0);
 }
 
 .site-header__wrapper {
@@ -243,58 +258,6 @@ a {
   color: var(--site-text-muted);
   font-size: clamp(1rem, 2vw, 1.25rem);
   line-height: 1.55;
-}
-
-.hero {
-  width: 100%;
-  max-width: 760px;
-  margin-bottom: 48px;
-}
-
-.hero-media {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  overflow: hidden;
-  background: #0b0b0b;
-  border: none;
-  aspect-ratio: 21 / 9;
-}
-
-.hero-media__asset {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.hero-media__placeholder {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg, var(--card-hover-gradient-start), var(--card-hover-gradient-mid) 45%, var(--card-hover-gradient-end));
-}
-
-.eyebrow {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.28em;
-  opacity: 0.55;
-  margin: 0 0 12px;
-}
-
-.hero-title {
-  font-size: clamp(30px, 4vw, 54px);
-  line-height: 1.1;
-  font-weight: 600;
-  margin: 0 0 16px;
-}
-
-.hero-subtitle {
-  font-size: 17px;
-  line-height: 1.5;
-  opacity: 0.65;
-  margin: 0;
 }
 
 .project-grid {
@@ -862,10 +825,6 @@ a {
   .project-card {
     grid-template-columns: 1fr;
     max-width: 100%;
-  }
-
-  .hero-media {
-    aspect-ratio: 16 / 9;
   }
 
   .project-card__content {
@@ -1510,46 +1469,6 @@ video.lightbox-current-media {
   margin-bottom: 0;
 }
 
-/* Adjust content to sit below the absolute hero */
-.project-layout {
-  padding-top: 60vh;
-  position: relative;
-}
-
-/* Ensure Site Header is above the hero */
-.site-header {
-  z-index: 30; /* Higher than hero */
-  background: var(--site-header-bg);
-}
-
-/* Read More Section Styling to Match Development Trigger */
-.read-more-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  opacity: 0.8;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-}
-
-.read-more-trigger .chevron {
-  font-size: 1.2rem;
-  transition: transform 0.3s;
-}
-
-.read-more-trigger .chevron.is-open {
-  transform: rotate(90deg);
-}
-
-.read-more-label {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.85rem;
-}
-
-
 /* Full Screen Hero outside Main */
 .project-hero-fullscreen {
   width: 100%;
@@ -1559,26 +1478,9 @@ video.lightbox-current-media {
   position: relative; /* It pushes content down naturally now */
 }
 
-/* Reset project layout */
 .project-layout {
   padding-top: 2.75rem; /* Slightly tighten hero-to-title spacing */
   position: relative;
-}
-
-/* Read More Section (Top Level) */
-.read-more-section {
-    margin: 4rem 0;
-}
-
-/* Hide the old inline trigger styles if any conflict */
-.read-more-trigger {
-    display: none; 
-}
-
-/* Ensure Site Header overlays correctly */
-.site-header {
-  position: fixed; /* Make it fixed so it stays on top of hero during scroll */
-  width: 100%;
 }
 
 

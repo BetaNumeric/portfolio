@@ -14,7 +14,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import { loadScriptOnce } from '../utils/loadScript'
 
-let scriptsPromise: Promise<void> | null = null
+let disposed = false
 const isLoading = ref(true)
 const isHovering = ref(false)
 const forceLoader = ref(false)
@@ -56,18 +56,19 @@ onMounted(() => {
     /* ignore */
   }
 
-  if (!scriptsPromise) {
-    scriptsPromise = (async () => {
+  void (async () => {
+    try {
       await loadScriptOnce(withBase('/vendor/p5/p5.js'))
+      if (disposed) return
       await loadScriptOnce(withBase('/vendor/sketches/time_web.js'))
-    })()
-  }
-  scriptsPromise
-    .then(() => startGlobalSketch())
-    .catch((e) => {
+      if (disposed) return
+      startGlobalSketch()
+    } catch (e) {
+      if (disposed) return
       console.error('[TimeScaleEmbed] Failed to load vendor scripts', e)
       isLoading.value = false
-    })
+    }
+  })()
 
   // Check if sketch has actually rendered content
   checkSketchLoaded = window.setInterval(() => {
@@ -102,7 +103,7 @@ onMounted(() => {
     }
   }, 100)
 
-  // Timeout after 10 seconds to be safe (unless forceLoader)
+  // Timeout after 30 seconds to be safe (unless forceLoader)
   loaderTimeout = window.setTimeout(() => {
     if (!forceLoader.value) {
       isLoading.value = false
@@ -115,6 +116,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
   if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
   if (loaderTimeout) window.clearTimeout(loaderTimeout)
 

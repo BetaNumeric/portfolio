@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, onUpdated, nextTick, useId } from 'vue'
-import { withBase } from 'vitepress'
 
 const props = defineProps<{
   title?: string
@@ -18,57 +17,20 @@ const contentId = `project-accordion-${useId()}`
 const toggle = () => {
   if (props.alwaysOpen) return
   isOpen.value = !isOpen.value
-  // If opening, wait for DOM and any lazy loads to start, then re-check images
-  if (isOpen.value) {
-    nextTick(() => {
-      // small delay to let lazy-loading attributes kick in
-      setTimeout(markTallImages, 50)
-    })
-  }
 }
 
-function markTallImages() {
-  if (!root.value) return
-  const imgs: NodeListOf<HTMLImageElement> = root.value.querySelectorAll('.accordion-content img')
-  imgs.forEach((img) => {
-    const check = (w?: number, h?: number) => {
-      const nw = w ?? img.naturalWidth
-      const nh = h ?? img.naturalHeight
-      // Classify as "tall" when the image is square or taller (height/width >= 1)
-      if (nw && nh && nh / nw >= 0.8) {
-        img.classList.add('tall-image')
-      } else {
-        img.classList.remove('tall-image')
-      }
-    }
+const classifyImage = (img: HTMLImageElement) => {
+  if (!img.naturalWidth || !img.naturalHeight) return
+  img.classList.toggle('tall-image', img.naturalHeight / img.naturalWidth >= 0.8)
+}
 
-    if (img.naturalWidth && img.naturalHeight) {
-      check()
-      return
-    }
+const handleImageLoad = (event: Event) => {
+  if (event.target instanceof HTMLImageElement) classifyImage(event.target)
+}
 
-    // If the image hasn't provided natural sizes yet, try a few fallbacks:
-    // 1) listen for the load event
-    const onLoad = () => {
-      check()
-      img.removeEventListener('load', onLoad)
-    }
-    img.addEventListener('load', onLoad)
-
-    // 2) create a probing Image to get natural sizes (handles lazy-loading
-    // where the element's naturalWidth is not yet populated)
-    try {
-      const probe = new Image()
-      probe.src = (img.currentSrc || img.src) as string
-      probe.decode?.().then(() => {
-        if (probe.naturalWidth && probe.naturalHeight) check(probe.naturalWidth, probe.naturalHeight)
-      }).catch(() => {
-        probe.onload = () => check(probe.naturalWidth, probe.naturalHeight)
-      })
-    } catch (e) {
-      // ignore probe failures
-    }
-  })
+const markTallImages = () => {
+  // Classify cached images without fetching media in collapsed sections.
+  root.value?.querySelectorAll<HTMLImageElement>('.accordion-content img').forEach(classifyImage)
 }
 
 onMounted(() => {
@@ -91,11 +53,13 @@ onUpdated(() => {
         @click="toggle"
       >
         <span>{{ title }}</span>
-        <img class="chevron" :class="{ 'is-open': isOpen }" :src="withBase('/assets/icons/chevron_w.svg')" alt="" aria-hidden="true" />
+        <svg class="chevron" :class="{ 'is-open': isOpen }" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M256,294.1l127-127.1c9.4-9.4,24.6-9.4,33.9,0s9.3,24.6,0,34l-143.9,144c-9.1,9.1-23.7,9.3-33.1.7L95,201.1c-4.7-4.7-7-10.9-7-17s2.3-12.3,7-17c9.4-9.4,24.6-9.4,33.9,0l127.1,127Z" />
+        </svg>
       </button>
     </h2>
 
-    <div :id="contentId" class="accordion-content" :class="{ 'is-open': isOpen, 'center-images': props.centerImages }" v-show="isOpen">
+    <div :id="contentId" class="accordion-content" :class="{ 'is-open': isOpen, 'center-images': props.centerImages }" v-show="isOpen" @load.capture="handleImageLoad">
       <slot></slot>
     </div>
   </div>

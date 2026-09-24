@@ -60,7 +60,7 @@ To make the drawing move, I used a time variable that is slowly counting up as t
 
 <div id="p5_container" style="width: 72svh; height: 72svh; margin: 2rem auto; border: 1px solid var(--site-border);"></div>
 
-After completing this program, it made me think about the speed with which the program draws the whole campus. Within a fraction of a second, thousands of squares are drawn and displayed. I thought about how watching a plotter draw each line might add to the value of the drawing. I decided to rewrite the code, to visualize the generating of the image, similar to how a plotter might draw it.
+After completing this program, it made me think about the speed with which the program draws the whole canvas. Within a fraction of a second, thousands of squares are drawn and displayed. I thought about how watching a plotter draw each line might add to the value of the drawing. I decided to rewrite the code, to visualize the generating of the image, similar to how a plotter might draw it.
 
 Instead of drawing the rectangles with the built-in rect() function, I programmed a dot to move and draw the lines that make up the rectangle. So instead of drawing them all at once, I used vectors for the position and velocity of the plotter’s “pen”. For each loop through the draw() function I added the velocity vector to the position, and once the desired length was reached I rotated the velocity vector by 90°. After 4 lines have reached the desired length, the program moves the pen inwards with a slightly random value and repeats the steps, but with a smaller maximum length for the lines. For each square, I applied the same random factors for rotation, shearing, and scaling and added a random velocity.
 

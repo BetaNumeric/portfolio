@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { withBase } from 'vitepress'
 
 const props = defineProps<{
@@ -11,10 +11,10 @@ const props = defineProps<{
   externalLink?: string
 }>()
 
-const showIndicator = ref(false)
 const isLightboxOpen = ref(false)
 const prefersReducedMotion = ref(false)
 const mediaTrigger = ref<HTMLElement | null>(null)
+const lightboxDialog = ref<HTMLDialogElement | null>(null)
 const closeButton = ref<HTMLButtonElement | null>(null)
 const videoExtensionPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
 let previousBodyOverflow = ''
@@ -68,64 +68,80 @@ const embedUrl = computed(() => {
   return url
 })
 
-const openLightbox = () => {
-  if (props.externalLink) {
-    window.open(props.externalLink, '_blank', 'noopener,noreferrer')
-  } else if (props.fullVideo) {
-    isLightboxOpen.value = true
-    previousBodyOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleLightboxKeydown)
-    nextTick(() => closeButton.value?.focus())
-  }
+const openLightbox = async () => {
+  if (props.externalLink || !props.fullVideo || isLightboxOpen.value) return
+
+  previousBodyOverflow = document.body.style.overflow
+  document.body.style.overflow = 'hidden'
+  isLightboxOpen.value = true
+  await nextTick()
+
+  const dialog = lightboxDialog.value
+  if (!isLightboxOpen.value || !dialog?.isConnected) return
+  // Native modal behavior contains focus, including the embedded player,
+  // and makes the rest of the page inert while the video is open.
+  dialog.showModal()
+  closeButton.value?.focus({ preventScroll: true })
 }
 
 const closeLightbox = (restoreFocus = true) => {
   if (!isLightboxOpen.value) return
   isLightboxOpen.value = false
+  lightboxDialog.value?.close()
   document.body.style.overflow = previousBodyOverflow
   previousBodyOverflow = ''
-  window.removeEventListener('keydown', handleLightboxKeydown)
   if (restoreFocus) {
-    nextTick(() => mediaTrigger.value?.focus())
+    nextTick(() => mediaTrigger.value?.focus({ preventScroll: true }))
   }
 }
 
-const handleLightboxKeydown = (event: KeyboardEvent) => {
-  if (event.key !== 'Escape') return
-  event.preventDefault()
-  closeLightbox()
+const handleDialogClose = () => {
+  if (!lightboxDialog.value?.open) closeLightbox()
+}
+
+const handleDialogKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Tab' || !lightboxDialog.value) return
+
+  const focusable = Array.from(
+    lightboxDialog.value.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
+    )
+  )
+  if (!focusable.length) return
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === lightboxDialog.value)) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 onMounted(() => {
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 })
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   closeLightbox(false)
 })
-
-const handleMouseEnter = () => {
-  showIndicator.value = true
-}
-
-const handleMouseLeave = () => {
-  showIndicator.value = false
-}
 </script>
 
 <template>
   <div class="project-intro-section">
     <component
-      :is="isClickable ? 'button' : 'div'"
+      :is="externalLink ? 'a' : fullVideo ? 'button' : 'div'"
       ref="mediaTrigger"
       class="project-main-media" 
       :class="{ 'is-clickable': isClickable }"
-      :type="isClickable ? 'button' : undefined"
+      :type="fullVideo && !externalLink ? 'button' : undefined"
+      :href="externalLink || undefined"
+      :target="externalLink ? '_blank' : undefined"
+      :rel="externalLink ? 'noopener noreferrer' : undefined"
       :aria-label="mediaActionLabel"
-      :aria-haspopup="fullVideo ? 'dialog' : undefined"
-      @mouseenter="handleMouseEnter" 
-      @mouseleave="handleMouseLeave"
+      :aria-haspopup="fullVideo && !externalLink ? 'dialog' : undefined"
       @click="openLightbox"
     >
       <video
@@ -139,7 +155,7 @@ const handleMouseLeave = () => {
         preload="metadata"
       ></video>
       <img v-else-if="mediaImage" :src="withBase(mediaImage)" :alt="alt || 'Project media'">
-      <div v-if="fullVideo || externalLink" class="play-overlay" :class="{ 'is-visible': showIndicator }" aria-hidden="true">
+      <div v-if="isClickable" class="play-overlay" aria-hidden="true">
         <div class="play-overlay__badge">
           <span class="play-overlay__icon"></span>
         </div>
@@ -153,19 +169,19 @@ const handleMouseLeave = () => {
     </div>
 
     <Teleport to="body">
-      <div
-        v-if="isLightboxOpen"
+      <dialog
+        ref="lightboxDialog"
         class="lightbox"
-        role="dialog"
-        aria-modal="true"
         aria-label="Project video"
         @click.self="closeLightbox()"
-        @keydown.esc.stop="closeLightbox()"
+        @cancel.prevent="closeLightbox()"
+        @close="handleDialogClose"
+        @keydown="handleDialogKeydown"
       >
         <button ref="closeButton" class="lightbox-close" type="button" aria-label="Close video" @click="closeLightbox()">&times;</button>
         <div class="lightbox-content">
           <iframe 
-            v-if="embedUrl" 
+            v-if="isLightboxOpen && embedUrl"
             :src="embedUrl" 
             title="Project video"
             frameborder="0" 
@@ -173,13 +189,14 @@ const handleMouseLeave = () => {
             allowfullscreen
           ></iframe>
         </div>
-      </div>
+      </dialog>
     </Teleport>
   </div>
 </template>
 
 <style scoped>
 .project-main-media {
+  display: block;
   width: 100%;
   padding: 0;
   border: 0;
@@ -207,12 +224,24 @@ const handleMouseLeave = () => {
   left: 0;
   width: 100%;
   height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: rgba(0, 0, 0, 0.95);
   z-index: 2000;
-  display: flex;
   justify-content: center;
   align-items: center;
   cursor: default;
+}
+
+.lightbox[open] {
+  display: flex;
+}
+
+.lightbox::backdrop {
+  background: transparent;
 }
 
 .lightbox-content {
@@ -256,8 +285,15 @@ const handleMouseLeave = () => {
   transition: opacity 0.6s ease;
 }
 
-.play-overlay.is-visible {
+.project-main-media:hover .play-overlay,
+.project-main-media:focus-visible .play-overlay {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .play-overlay {
+    opacity: 1;
+  }
 }
 
 .play-overlay__badge {

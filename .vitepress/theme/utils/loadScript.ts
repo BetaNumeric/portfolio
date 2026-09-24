@@ -15,37 +15,29 @@ export function loadScriptOnce(src: string): Promise<void> {
   if (pendingLoads.has(src)) return pendingLoads.get(src)!
 
   const promise = new Promise<void>((resolve, reject) => {
-    // If a matching script tag exists but isn't marked loaded yet, attach listeners.
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener(
-        'error',
-        () => reject(new Error(`Failed to load script: ${src}`)),
-        { once: true }
-      )
-      return
+    const el = existing ?? document.createElement('script')
+    if (!existing) {
+      el.src = src
+      el.async = true
+      el.dataset.scriptOnce = key
     }
 
-    const el = document.createElement('script')
-    el.src = src
-    el.async = true
-    el.dataset.scriptOnce = key
+    const onLoad = () => {
+      el.removeEventListener('error', onError)
+      el.dataset.loaded = 'true'
+      resolve()
+    }
+    const onError = () => {
+      el.removeEventListener('load', onLoad)
+      // A failed element will never emit another load event. Remove it so the
+      // next request creates a fresh script instead of waiting indefinitely.
+      el.remove()
+      reject(new Error(`Failed to load script: ${src}`))
+    }
+    el.addEventListener('load', onLoad, { once: true })
+    el.addEventListener('error', onError, { once: true })
 
-    el.addEventListener(
-      'load',
-      () => {
-        el.dataset.loaded = 'true'
-        resolve()
-      },
-      { once: true }
-    )
-    el.addEventListener(
-      'error',
-      () => reject(new Error(`Failed to load script: ${src}`)),
-      { once: true }
-    )
-
-    document.head.appendChild(el)
+    if (!existing) document.head.appendChild(el)
   })
 
   pendingLoads.set(src, promise)
@@ -54,4 +46,3 @@ export function loadScriptOnce(src: string): Promise<void> {
 
   return promise
 }
-

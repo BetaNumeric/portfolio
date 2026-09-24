@@ -14,7 +14,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import { loadScriptOnce } from '../utils/loadScript'
 
-let scriptsPromise: Promise<void> | null = null
+let disposed = false
 const isLoading = ref(true)
 const isHovering = ref(false)
 const forceLoader = ref(false)
@@ -49,19 +49,20 @@ onMounted(() => {
     /* ignore */
   }
 
-  // Ensure vendor scripts are present, then (re)start the global-mode sketch for this hero.
-  if (!scriptsPromise) {
-    scriptsPromise = (async () => {
+  // Ensure vendor scripts are present, then mount sketches while this page is active.
+  void (async () => {
+    try {
       await loadScriptOnce(withBase('/vendor/p5/p5.js'))
+      if (disposed) return
       await loadScriptOnce(withBase('/vendor/sketches/algorithmic_drawing.js'))
-    })()
-  }
-  scriptsPromise
-    .then(() => mountVendorSketches())
-    .catch((e) => {
+      if (disposed) return
+      mountVendorSketches()
+    } catch (e) {
+      if (disposed) return
       console.error('[AlgorithmicDrawingEmbed] Failed to load vendor scripts', e)
       isLoading.value = false
-    })
+    }
+  })()
 
   // Check if sketch has actually rendered content
   checkSketchLoaded = window.setInterval(() => {
@@ -118,6 +119,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
   if (checkSketchLoaded) window.clearInterval(checkSketchLoaded)
   if (loaderTimeout) window.clearTimeout(loaderTimeout)
 

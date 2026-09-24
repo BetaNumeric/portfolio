@@ -45,8 +45,6 @@ With our notes we then went to different forests and collected footage with diff
 
 From this material, we then puzzled together our video and if there was a gap or something didn't fit, we went back into the forest to look for the missing puzzle piece.
 
-On October 23rd 2021 we received the "Young Talent Prize" from the Realtime Festival for New Music.
-
 ![Young Talent Prize Certificate](/projects/breathing_trees/certificate.jpg)
 
 </ProjectAccordion>

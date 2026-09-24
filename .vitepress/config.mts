@@ -26,6 +26,8 @@ export default defineConfig({
         const src = token.attrGet('src') ?? ''
 
         if (!videoAssetPattern.test(src)) {
+          token.attrSet('loading', 'lazy')
+          token.attrSet('decoding', 'async')
           if (defaultImageRenderer) {
             return defaultImageRenderer(tokens, idx, options, env, self)
           }

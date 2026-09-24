@@ -29,11 +29,12 @@ const siteTitle = computed(() => site.value.title ?? 'Portfolio')
 
 const normalizePath = (path: string) => {
   const base = site.value.base ?? '/'
-  let normalized = path
-  if (base !== '/' && normalized.startsWith(base)) {
-    normalized = `/${normalized.slice(base.length)}`
+  const basePath = base.replace(/\/$/, '')
+  let normalized = path.split(/[?#]/)[0]
+  if (basePath && (normalized === basePath || normalized.startsWith(`${basePath}/`))) {
+    normalized = normalized.slice(basePath.length)
   }
-  return normalized.replace(/\/$/, '')
+  return normalized.replace(/(?:\/index)?\.html$/, '').replace(/\/$/, '') || '/'
 }
 
 const currentPath = computed(() => normalizePath(route.path))
@@ -408,8 +409,10 @@ const currentLightboxMedia = computed(() => {
 })
 
 const isActive = (link: string) => {
-  if (link === '/') return route.path === '/'
-  return route.path.startsWith(link)
+  if (link === '/#projects') return isHome.value || isProject.value
+  const targetPath = normalizePath(link)
+  return currentPath.value === targetPath ||
+    (targetPath !== '/' && currentPath.value.startsWith(`${targetPath}/`))
 }
 
 const shouldOpenInNewTab = (link: string) => /^https?:\/\//i.test(link)
@@ -595,6 +598,7 @@ watch(activeProjectTag, async () => {
 })
 
 const handleEnter = (event: MouseEvent) => {
+  if (prefersReducedMotion.value) return
   const card = event.currentTarget as HTMLElement | null
   const video = card?.querySelector('video') as HTMLVideoElement | null
   if (video) {
@@ -614,6 +618,7 @@ const handleLeave = (event: MouseEvent) => {
 
 <template>
   <div class="site-shell">
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="navbar-trigger" @mouseenter="handleMouseEnter"></div>
     <header class="site-header" :class="{ 'site-header--hidden': isNavbarHidden }" @mouseenter="handleMouseEnter">
       <div class="site-header__wrapper">
@@ -623,7 +628,7 @@ const handleLeave = (event: MouseEvent) => {
           <span class="site-title__role">Portfolio</span>
         </a>
         <nav :class="['site-nav', { 'is-open': mobileNavOpen }]" aria-label="Primary">
-          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]" :aria-current="isActive(item.link) ? 'page' : undefined" @click="mobileNavOpen = false">
+          <a v-for="item in navItems" :key="item.link" :href="withBase(item.link)" :class="['site-nav__link', { 'site-nav__link--active': isActive(item.link) }]" :aria-current="isActive(item.link) ? (item.link.includes('#') ? 'location' : 'page') : undefined" @click="mobileNavOpen = false">
             {{ item.text }}
           </a>
         </nav>
@@ -665,7 +670,7 @@ const handleLeave = (event: MouseEvent) => {
       class="project-hero-fullscreen"
       :style="{ backgroundImage: `url(${withBase(frontmatter.heroImage)})` }"
     ></div>
-    <main class="site-main" :class="{ 'is-home': isHome, 'is-home--interactive': showInteractiveHomeHero }">
+    <main id="main-content" tabindex="-1" class="site-main" :class="{ 'is-home': isHome, 'is-home--interactive': showInteractiveHomeHero }">
       <template v-if="isHome">
         <header v-if="!showInteractiveHomeHero" class="home-intro">
           <p class="home-intro__role">{{ frontmatter.homeRole }}</p>

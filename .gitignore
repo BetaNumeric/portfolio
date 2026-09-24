@@ -29,6 +29,7 @@ Thumbs.db
 Desktop.ini
 
 # Temporary / backup files
+tmp/
 *.tmp
 *.temp
 *.bak
