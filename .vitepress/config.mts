@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitepress'
-const siteBase = '/portfolio/'
+const siteBase = '/'
 const videoAssetPattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i
 
 const withSiteBase = (src: string) => {
