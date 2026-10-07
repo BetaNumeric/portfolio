@@ -4,6 +4,7 @@ import Layout from './Layout.vue'
 import ProjectAccordion from './components/ProjectAccordion.vue'
 import ProjectIntro from './components/ProjectIntro.vue'
 import ModelEmbed from './components/ModelEmbed.vue'
+import ExternalEmbed from './components/ExternalEmbed.vue'
 import type { Theme } from 'vitepress'
 import './style.css'
 
@@ -16,5 +17,6 @@ export default {
     app.component('ProjectIntro', ProjectIntro)
     app.component('AboutScene', AboutScene)
     app.component('ModelEmbed', ModelEmbed)
+    app.component('ExternalEmbed', ExternalEmbed)
   }
 } satisfies Theme

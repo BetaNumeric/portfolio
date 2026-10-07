@@ -35,7 +35,7 @@ My goal was to visualize time less abstractly, that is, more closely related to 
 By the nature of the spiral, events that are happening sooner appear bigger and closer.
 
 <div style="display: flex; justify-content: center; margin: 2rem 0;">
-  <iframe width="180" height="360" style="border-radius: 8px; max-width: 100%; aspect-ratio: 9/16;" src="https://www.youtube.com/embed/8Pw_GLi-HXI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+  <ExternalEmbed style="width: 320px; max-width: 100%; height: 570px;" src="https://www.youtube.com/embed/8Pw_GLi-HXI" title="Spiral video" />
 </div>
 
 To demonstrate the concept, I created a mockup of the spiral calendar in After Effects and Illustrator in 2019. I developed an interactive web-based version in 2025.

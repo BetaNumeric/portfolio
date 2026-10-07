@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useData } from 'vitepress'
+import ExternalEmbed from './ExternalEmbed.vue'
 
 const { isDark } = useData()
 
@@ -64,14 +65,11 @@ const heroStyle = computed(() => {
 
 <template>
   <section class="luma-hero" :style="heroStyle">
-    <iframe
+    <ExternalEmbed
       :src="embedSrc"
       :title="title"
-      frameborder="0"
-      allowfullscreen
       class="luma-hero__frame"
-      style="border: none"
-    ></iframe>
+    />
   </section>
 </template>
 
@@ -79,7 +77,7 @@ const heroStyle = computed(() => {
 .luma-hero {
   width: 100%;
   height: var(--luma-hero-height);
-  min-height: var(--luma-hero-min-height);
+  min-height: max(360px, var(--luma-hero-min-height));
   margin-top: 60px; /* keep clear of fixed header */
   border-bottom: 1px solid var(--site-border);
   background: var(--site-bg);
@@ -94,7 +92,7 @@ const heroStyle = computed(() => {
 @media (max-width: 768px) {
   .luma-hero {
     height: var(--luma-hero-mobile-height);
-    min-height: var(--luma-hero-mobile-min-height);
+    min-height: max(400px, var(--luma-hero-mobile-min-height));
   }
 }
 </style>

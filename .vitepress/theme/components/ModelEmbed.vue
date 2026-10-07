@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import ExternalEmbed from './ExternalEmbed.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -26,42 +27,26 @@ const frameStyle = computed(() => ({
 
 <template>
   <div class="model-embed" :style="frameStyle">
-    <iframe
+    <ExternalEmbed
       :src="src"
       :title="title"
-      loading="lazy"
-      frameborder="0"
-      allowfullscreen
-      mozallowfullscreen="true"
-      webkitallowfullscreen="true"
       :allow="allow"
-      xr-spatial-tracking
-      execution-while-out-of-viewport
-      execution-while-not-rendered
-      web-share
-    ></iframe>
+    />
   </div>
 </template>
 
 <style scoped>
 .model-embed {
   width: 100%;
-  height: var(--embed-height-desktop);
+  height: max(360px, var(--embed-height-desktop));
   margin: 2rem auto;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.model-embed iframe {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
 @media (max-width: 768px) {
   .model-embed {
-    height: var(--embed-height-mobile);
+    height: max(400px, var(--embed-height-mobile));
   }
 }
 </style>

@@ -1998,10 +1998,13 @@ function mouseReleased() {
 
 
 function mouseWheel(event) {
-  if (mouseX>0 && mouseX<width && mouseY>0 && mouseY<height) {
+  const isOverCanvas = mouseX>0 && mouseX<width && mouseY>0 && mouseY<height;
+  if (isOverCanvas) {
     scrollValue += event.delta*(scrollValue/1000);
   }
   txtClicked=false;
+  // Keep zooming inside the isolated viewer from scrolling the parent page.
+  if (isOverCanvas) return false;
 }
 
 function mouseDragged() {
@@ -2132,9 +2135,8 @@ function windowResized() {
   var pH=document.getElementById("program").offsetHeight;
 
   pW = document.body.clientWidth;
-  pH = windowHeight*3/4;
-  //pH = windowHeight*4/5;
-  //pH = windowHeight-1;
+  // The sketch now occupies its own frame, whose viewport is the viewer size.
+  pH = windowHeight;
   resizeCanvas(pW, pH);
   imageW=height/5;
   if (imageW<=0) {

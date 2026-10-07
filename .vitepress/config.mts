@@ -12,6 +12,8 @@ const withSiteBase = (src: string) => {
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   base: siteBase,
+  // The custom layout manages explicitly chosen session-only preferences.
+  appearance: false,
   title: 'Tim Redlich',
   srcExclude: ['projects/_template/**'],
   ignoreDeadLinks: false,

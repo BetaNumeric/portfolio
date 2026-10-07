@@ -37,7 +37,7 @@ The DC motor is powered by an 18V battery, which is down-regulated to 5.8V with 
 After recording a preferably cloud-, fog-, rain- and morning dew-less rotation and developing the RAW files I remove hot pixels with an action as a batch process in Photoshop. Then I import those new files as a sequence into After Effects and use two motion trackers on fixed stars to remove small variations in position and rotation. I export the frames as image sequence and video.
 
 <div class="embed-container">
-  <iframe title="vimeo-player" src="https://player.vimeo.com/video/494676533?h=ef6c36b0fb&title=0&byline=0&portrait=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+  <ExternalEmbed title="Earth Trails video" src="https://player.vimeo.com/video/494676533?h=ef6c36b0fb&title=0&byline=0&portrait=0" />
 </div>
 
 To create the Earth Trails as a video I use another batch process in Photoshop that adds with each step one of the stabilized images and blends them with the Lighten blend mode. In Media Encoder I then render this new sequence as a video. For the still Earth Trail images I use the Image Statistics script, where I import all photos and let Photoshop calculate the mean value for each pixel.
@@ -47,7 +47,7 @@ To create the Earth Trails as a video I use another batch process in Photoshop t
 3D model of the machine:
 
 <div class="embed-container embed-3d">
-  <iframe title="Earth Trails Scan" src="https://sketchfab.com/models/0c96bbe915c34d7b8b1b068e8fc41234/embed?ui_controls=0&ui_infos=0&ui_stop=0&preload=1&autostart=1" frameborder="0" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>
+  <ExternalEmbed title="Earth Trails Scan" src="https://sketchfab.com/models/0c96bbe915c34d7b8b1b068e8fc41234/embed?ui_controls=0&ui_infos=0&ui_stop=0&preload=1&autostart=1" />
 </div>
 
 </ProjectAccordion>

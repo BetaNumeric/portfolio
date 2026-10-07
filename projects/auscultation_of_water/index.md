@@ -112,7 +112,7 @@ Then I drilled holes for the valves, tubes and for the pump and cut a hole for t
 After that I assebled all parts of the machine.
  
 <div class="embed-container">
-  <iframe title="vimeo-player" src="https://player.vimeo.com/video/369177681?h=ef6c36b0fb&title=0&byline=0&portrait=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+  <ExternalEmbed title="Auscultation of Water video" src="https://player.vimeo.com/video/369177681?h=ef6c36b0fb&title=0&byline=0&portrait=0" />
 </div>
 
 I screwed on the Arduino and the h-bridges, attached the pump, soldered the cables and connected it with the switch, put the tubes through their holes and screwed the whole thing with the valves holding it on the top lid.

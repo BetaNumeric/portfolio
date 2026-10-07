@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Time Scale</title>
+    <style>
+      html, body { margin: 0; padding: 0; overflow: hidden; background: #181818; }
+      canvas { display: block; }
+      #notice { padding: 24px; color: white; font-family: sans-serif; }
+      #notice a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <div id="program"></div>
+    <p id="notice">To activate this demo, open the <a href="../projects/time-scale/">Time Scale project page</a> and choose to load the external content.</p>
+    <script>
+      // No data or vendor scripts load until the consenting parent starts this viewer.
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.append(script);
+      });
+
+      const start = async (event) => {
+        if (window.parent === window || event.source !== window.parent ||
+            event.origin !== window.location.origin || event.data !== 'start-time-scale') return;
+        window.removeEventListener('message', start);
+        const notice = document.getElementById('notice');
+        notice.textContent = 'Loading Time Scale…';
+        try {
+          await loadScript('../vendor/p5/p5.js');
+          await loadScript('../vendor/sketches/time_web.js');
+          notice.remove();
+          new p5();
+        } catch {
+          notice.textContent = 'Time Scale could not load. Please unload the viewer and try again.';
+        }
+      };
+      window.addEventListener('message', start);
+    </script>
+  </body>
+</html>

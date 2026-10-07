@@ -7,6 +7,7 @@ import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import { installArrowKeyScroll } from './utils/arrowKeyScroll'
 import { installSmoothWheelScroll } from './utils/smoothWheelScroll'
+import { activeExternalContentCount, disableExternalContent } from './utils/externalContent'
 
 const interactiveHomeHeroUnavailable = ref(false)
 const forceSimpleHomeHero = ref(false)
@@ -20,7 +21,8 @@ const InteractiveHomeHero = defineAsyncComponent({
 })
 
 // https://vitepress.dev/reference/runtime-api#usedata
-const { site, frontmatter } = useData()
+const { site, frontmatter, isDark } = useData()
+isDark.value = true
 const route = useRoute()
 
 const navItems = computed(() => site.value.themeConfig?.nav ?? [])
@@ -230,8 +232,10 @@ const homeGridLayout = ref<'single' | 'two'>(defaultHomeGridLayout.value)
 
 const getSavedHomeGridLayout = (): 'single' | 'two' | null => {
   if (typeof window === 'undefined') return null
-  const saved = localStorage.getItem(HOME_GRID_LAYOUT_KEY)
-  if (saved === 'single' || saved === 'two') return saved
+  try {
+    const saved = sessionStorage.getItem(HOME_GRID_LAYOUT_KEY)
+    if (saved === 'single' || saved === 'two') return saved
+  } catch { /* Preferences also work when browser storage is unavailable. */ }
   return null
 }
 
@@ -243,7 +247,7 @@ const setHomeGridLayout = async (layout: 'single' | 'two') => {
   if (homeGridLayout.value === layout) return
   homeGridLayout.value = layout
   if (typeof window !== 'undefined') {
-    localStorage.setItem(HOME_GRID_LAYOUT_KEY, layout)
+    try { sessionStorage.setItem(HOME_GRID_LAYOUT_KEY, layout) } catch {}
   }
   await nextTick()
   syncProjectCardsWithViewport()
@@ -457,27 +461,27 @@ const handleMouseEnter = () => {
 }
 
 // Theme Logic
-const isDark = ref(true)
-
 const toggleTheme = () => {
   isDark.value = !isDark.value
-  updateTheme()
+  updateTheme(true)
 }
 
-const updateTheme = () => {
+const updateTheme = (savePreference = false) => {
   if (typeof document === 'undefined') return
   const html = document.documentElement
   if (isDark.value) {
     html.classList.remove('light-mode')
-    localStorage.setItem('theme', 'dark')
   } else {
     html.classList.add('light-mode')
-    localStorage.setItem('theme', 'light')
+  }
+  if (savePreference) {
+    try { sessionStorage.setItem('theme', isDark.value ? 'dark' : 'light') } catch {}
   }
 }
 
 onMounted(() => {
-  const savedTheme = localStorage.getItem('theme')
+  let savedTheme: string | null = null
+  try { savedTheme = sessionStorage.getItem('theme') } catch {}
   if (savedTheme) {
     isDark.value = savedTheme === 'dark'
   } else {
@@ -1035,6 +1039,13 @@ const handleLeave = (event: MouseEvent) => {
             <span v-else>{{ link.name }}</span>
           </a>
         </div>
+
+        <nav class="footer-legal" aria-label="Legal">
+          <a :href="withBase('/impressum')" class="footer-legal__link">Impressum</a>
+          <a :href="withBase('/datenschutz')" class="footer-legal__link">Datenschutz</a>
+          <button v-if="activeExternalContentCount" type="button" class="footer-legal__link footer-legal__button" @click="disableExternalContent">Disable external content</button>
+        </nav>
+
         <button :class="['footer-toggle','theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :aria-pressed="!isDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <span class="sr-only">{{ isDark ? 'Light' : 'Dark' }}</span>
         </button>

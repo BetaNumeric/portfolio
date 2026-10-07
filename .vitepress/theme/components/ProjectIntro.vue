@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { withBase } from 'vitepress'
+import ExternalEmbed from './ExternalEmbed.vue'
 
 const props = defineProps<{
   video?: string
@@ -180,14 +181,12 @@ onBeforeUnmount(() => {
       >
         <button ref="closeButton" class="lightbox-close" type="button" aria-label="Close video" @click="closeLightbox()">&times;</button>
         <div class="lightbox-content">
-          <iframe 
+          <ExternalEmbed
             v-if="isLightboxOpen && embedUrl"
             :src="embedUrl" 
             title="Project video"
-            frameborder="0" 
             allow="autoplay; fullscreen; picture-in-picture" 
-            allowfullscreen
-          ></iframe>
+          />
         </div>
       </dialog>
     </Teleport>
@@ -248,12 +247,8 @@ onBeforeUnmount(() => {
   width: 90%;
   max-width: 1280px;
   aspect-ratio: 16/9;
+  min-height: 360px;
   background: black;
-}
-
-.lightbox-content iframe {
-  width: 100%;
-  height: 100%;
 }
 
 .lightbox-close {

@@ -42,7 +42,7 @@ In my installation, I want to show the deep connection between water and our abi
 <ProjectAccordion title="Development">
 
 <div class="video-container">
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/uOOmZvK5XgE" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  <ExternalEmbed title="Seeing Water video" src="https://www.youtube.com/embed/uOOmZvK5XgE" />
 </div>
 
 I experimented with the visual properties of water droplets, by attaching one to a piece of wire and trying to focus my eye inside the droplet.
