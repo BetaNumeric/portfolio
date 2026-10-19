@@ -2,8 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useRoute, withBase } from 'vitepress'
 import {
+  allExternalContentAllowed,
+  allowAllExternalContent,
   cleanExternalUrl,
-  externalContentResetVersion,
+  externalContentConsentVersion,
   getExternalProvider,
   setExternalContentActive,
 } from '../utils/externalContent'
@@ -23,9 +25,17 @@ const unloadButton = ref<HTMLButtonElement | null>(null)
 const provider = computed(() => getExternalProvider(props.src))
 const externalUrl = computed(() => cleanExternalUrl(props.externalLink || props.src))
 
-const activate = async () => {
+const activate = async (moveFocus = false) => {
   isActive.value = true
   setExternalContentActive(id, true)
+  if (moveFocus) {
+    await nextTick()
+    unloadButton.value?.focus({ preventScroll: true })
+  }
+}
+
+const activateAll = async () => {
+  allowAllExternalContent()
   await nextTick()
   unloadButton.value?.focus({ preventScroll: true })
 }
@@ -39,7 +49,11 @@ const deactivate = async (restoreFocus = false) => {
   }
 }
 
-watch([() => props.src, () => route.path, externalContentResetVersion], () => deactivate())
+watch(
+  [() => props.src, () => route.path, allExternalContentAllowed, externalContentConsentVersion],
+  () => allExternalContentAllowed.value ? activate() : deactivate(),
+  { immediate: true },
+)
 onBeforeUnmount(() => setExternalContentActive(id, false))
 </script>
 
@@ -48,17 +62,21 @@ onBeforeUnmount(() => setExternalContentActive(id, false))
     <div v-if="!isActive" class="external-content__notice">
       <p class="external-content__title">{{ title }}</p>
       <p :id="`${id}-notice`" class="external-content__description">
-        {{ description || `Loading this content connects to ${provider.name}, which receives your IP address and device information and may use cookies or process data outside the EU/EEA.` }}
-        Your choice applies to this viewer only. You can withdraw it using “Unload content”.
+        {{ description || `${provider.name} may use cookies and process your IP/device data outside the EU/EEA.` }}
       </p>
-      <div class="external-content__links">
-        <a :href="withBase('/datenschutz#externe-inhalte')">Privacy information</a>
-        <a v-if="provider.privacyUrl" :href="provider.privacyUrl" target="_blank" rel="noopener noreferrer">{{ provider.name }} privacy policy</a>
+      <div class="external-content__actions">
+        <button ref="loadButton" type="button" class="external-content__load" :aria-label="`Load this content from ${provider.name}`" :aria-describedby="`${id}-notice`" @click="activate(true)">
+          Load this content
+        </button>
+        <button type="button" class="external-content__load" :aria-describedby="`${id}-notice ${id}-scope`" @click="activateAll">
+          Allow all external content
+        </button>
       </div>
-      <button ref="loadButton" type="button" class="external-content__load" :aria-describedby="`${id}-notice`" @click="activate">
-        Load content from {{ provider.name }}
-      </button>
-      <a :href="externalUrl" class="external-content__external-link" target="_blank" rel="noopener noreferrer">Open in a new tab instead ↗</a>
+      <p :id="`${id}-scope`" class="external-content__scope">Allow all applies site-wide for this tab. Withdraw in the footer.</p>
+      <div class="external-content__links">
+        <a :href="withBase('/datenschutz#externe-inhalte')">Privacy details</a>
+        <a :href="externalUrl" target="_blank" rel="noopener noreferrer">Open externally ↗</a>
+      </div>
     </div>
     <template v-else>
       <div class="external-content__toolbar">
@@ -90,7 +108,7 @@ onBeforeUnmount(() => setExternalContentActive(id, false))
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   padding: clamp(20px, 4vw, 40px);
   text-align: center;
 }
@@ -102,9 +120,10 @@ onBeforeUnmount(() => setExternalContentActive(id, false))
 
 .external-content__title { font-size: 1.15rem; font-weight: 500; }
 .external-content__description { font-size: 14px; line-height: 1.55; color: var(--site-text-muted); }
+.external-content__scope { font-size: 12px; line-height: 1.5; color: var(--site-text-muted); }
+.external-content__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 100%; }
 .external-content__links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; font-size: 13px; }
-.external-content__links a, .external-content__external-link { text-decoration: underline; text-underline-offset: 3px; }
-.external-content__external-link { font-size: 13px; }
+.external-content__links a { text-decoration: underline; text-underline-offset: 3px; }
 
 .external-content__load {
   padding: 12px 18px;
@@ -142,5 +161,8 @@ onBeforeUnmount(() => setExternalContentActive(id, false))
 
 @media (max-width: 480px) {
   .external-content { min-height: 360px; }
+  .external-content__notice { gap: 10px; padding: 16px; }
+  .external-content__actions { width: 100%; flex-wrap: nowrap; }
+  .external-content__load { flex: 1; min-width: 0; padding: 10px; font-size: 13px; }
 }
 </style>

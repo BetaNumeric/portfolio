@@ -7,7 +7,7 @@ import AlgorithmicDrawingEmbed from './components/AlgorithmicDrawingEmbed.vue'
 import LumaHeroEmbed from './components/LumaHeroEmbed.vue'
 import { installArrowKeyScroll } from './utils/arrowKeyScroll'
 import { installSmoothWheelScroll } from './utils/smoothWheelScroll'
-import { activeExternalContentCount, disableExternalContent } from './utils/externalContent'
+import { activeExternalContentCount, allExternalContentAllowed, disableExternalContent, restoreExternalContentConsent } from './utils/externalContent'
 
 const interactiveHomeHeroUnavailable = ref(false)
 const forceSimpleHomeHero = ref(false)
@@ -480,6 +480,7 @@ const updateTheme = (savePreference = false) => {
 }
 
 onMounted(() => {
+  restoreExternalContentConsent()
   let savedTheme: string | null = null
   try { savedTheme = sessionStorage.getItem('theme') } catch {}
   if (savedTheme) {
@@ -1043,7 +1044,7 @@ const handleLeave = (event: MouseEvent) => {
         <nav class="footer-legal" aria-label="Legal">
           <a :href="withBase('/impressum')" class="footer-legal__link">Impressum</a>
           <a :href="withBase('/datenschutz')" class="footer-legal__link">Datenschutz</a>
-          <button v-if="activeExternalContentCount" type="button" class="footer-legal__link footer-legal__button" @click="disableExternalContent">Disable external content</button>
+          <button v-if="activeExternalContentCount || allExternalContentAllowed" type="button" class="footer-legal__link footer-legal__button" @click="disableExternalContent">Disable external content</button>
         </nav>
 
         <button :class="['footer-toggle','theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :aria-pressed="!isDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">

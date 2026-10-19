@@ -1,9 +1,25 @@
 import { computed, reactive, ref } from 'vue'
 
-// Consent applies to one mounted viewer and is never persisted in the browser.
+// Individual choices stay with the viewer; an explicit all-content choice lasts
+// for the current tab's session and is restored after the app has mounted.
+const ALL_CONTENT_CONSENT_KEY = 'external-content-consent'
 const activeViewers = reactive(new Set<string>())
-export const externalContentResetVersion = ref(0)
+export const allExternalContentAllowed = ref(false)
+export const externalContentConsentVersion = ref(0)
 export const activeExternalContentCount = computed(() => activeViewers.size)
+
+export function restoreExternalContentConsent() {
+  try {
+    allExternalContentAllowed.value = sessionStorage.getItem(ALL_CONTENT_CONSENT_KEY) === 'all'
+  } catch { /* Consent still works in memory when browser storage is unavailable. */ }
+}
+
+export function allowAllExternalContent() {
+  allExternalContentAllowed.value = true
+  // Re-enable any viewers that were individually unloaded since the last choice.
+  externalContentConsentVersion.value += 1
+  try { sessionStorage.setItem(ALL_CONTENT_CONSENT_KEY, 'all') } catch {}
+}
 
 export function setExternalContentActive(id: string, active: boolean) {
   if (active) activeViewers.add(id)
@@ -11,7 +27,9 @@ export function setExternalContentActive(id: string, active: boolean) {
 }
 
 export function disableExternalContent() {
-  externalContentResetVersion.value += 1
+  allExternalContentAllowed.value = false
+  externalContentConsentVersion.value += 1
+  try { sessionStorage.removeItem(ALL_CONTENT_CONSENT_KEY) } catch {}
 }
 
 export function cleanExternalUrl(source: string) {

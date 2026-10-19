@@ -11,7 +11,7 @@ import ExternalEmbed from './ExternalEmbed.vue'
       title="Time Scale interactive demo"
       provider-src="https://docs.google.com"
       external-link="https://betanumeric.github.io/time/"
-      description="This demo loads data from Google Sheets and images from jsDelivr and RawGit. These services receive your IP address and device information and may process data outside the EU/EEA."
+      description="Google Sheets, jsDelivr and RawGit may use cookies and process your IP/device data outside the EU/EEA."
       allow=""
     />
   </section>

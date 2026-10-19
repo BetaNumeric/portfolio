@@ -84,7 +84,6 @@ const heroStyle = computed(() => {
 }
 
 .luma-hero__frame {
-  display: block;
   width: 100%;
   height: 100%;
 }

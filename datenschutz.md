@@ -6,7 +6,7 @@ description: Informationen zum Datenschutz, Hosting und zu optionalen externen I
 
 # Datenschutzerklärung
 
-Stand: 7. Oktober 2026
+Stand: 19. Oktober 2026
 
 ## Verantwortlicher
 
@@ -54,7 +54,7 @@ Die Speicherung erfolgt für die von Ihnen gewünschte Darstellungsfunktion gem�
 
 ## Externe Inhalte
 
-Auf einigen Projektseiten können Sie Videos, Karten, 3D-Modelle, virtuelle Rundgänge oder interaktive Projektansichten aktivieren. Diese Inhalte sind zunächst blockiert. Erst wenn Sie die Schaltfläche „Load content from …“ betätigen, wird der jeweilige Inhalt geladen. Sie können die übrigen Seiteninhalte auch ohne diese Einwilligung lesen.
+Auf einigen Projektseiten können Sie Videos, Karten, 3D-Modelle, virtuelle Rundgänge oder interaktive Projektansichten aktivieren. Diese Inhalte sind zunächst blockiert. Mit „Load this content“ erlauben Sie nur den jeweiligen Inhalt. Mit „Allow all external content“ erlauben Sie alle unten genannten externen Dienste auf dieser Website für die aktuelle Tab-Sitzung. Sie können die übrigen Seiteninhalte auch ohne diese Einwilligung lesen.
 
 Durch das Aktivieren willigen Sie in die Verbindung zu den im Hinweis genannten Diensten und die damit verbundene Übermittlung Ihrer IP-Adresse sowie Browser- und Geräteinformationen ein. Die Dienste können weitere Ressourcen laden, Nutzungsdaten erfassen und Cookies oder ähnliche Technologien einsetzen. Wenn Sie beim jeweiligen Dienst angemeldet sind, kann dieser die Nutzung gegebenenfalls Ihrem Konto zuordnen. Die Einwilligung für die Einbindung beruht auf Art. 6 Abs. 1 lit. a DSGVO und, soweit auf Informationen im Endgerät zugegriffen wird, § 25 Abs. 1 TDDDG.
 
@@ -78,7 +78,11 @@ Die Dienste können Daten außerhalb der EU bzw. des EWR verarbeiten, insbesonde
 
 ### Einwilligung widerrufen
 
-Ihre Auswahl gilt nur für den einzelnen eingeblendeten Inhalt und wird von dieser Website nicht dauerhaft gespeichert. Sie können die Einbindung jederzeit über „Unload content“ am Viewer oder „Disable external content“ im Footer beenden. Beim Wechsel zu einer anderen Seite oder beim erneuten Laden muss ein externer Inhalt erneut aktiviert werden.
+Die Einzelfreigabe über „Load this content“ gilt nur für den angezeigten Viewer und endet beim Seitenwechsel oder erneuten Laden. Die Freigabe über „Allow all external content“ gilt dagegen auch für weitere Projektseiten und später geöffnete Viewer, einschließlich Videodialogen. Sie wird unter dem Schlüssel `external-content-consent` mit dem Wert `all` im Session Storage gespeichert, damit Ihre ausdrücklich erteilte Freigabe im aktuellen Tab bei Seitenwechseln und erneutem Laden erhalten bleibt. Ohne diese Auswahl wird keine Einwilligung gespeichert. Ist der Browserspeicher gesperrt, gilt die Freigabe nur bis zum erneuten Laden.
+
+Über „Disable external content“ im Footer können Sie jederzeit alle Freigaben widerrufen. Dadurch werden die eingebundenen Viewer entfernt und die gespeicherte Freigabe gelöscht. Die Funktion steht bei einer Freigabe für alle Dienste auch auf Seiten ohne Viewer zur Verfügung. Die Sitzungsspeicherung endet normalerweise mit dem Schließen des Tabs; eine Sitzungswiederherstellung des Browsers kann sie wiederherstellen.
+
+„Unload content“ am Viewer stoppt nur den gerade angezeigten Inhalt. Eine zuvor erteilte Freigabe für alle Dienste bleibt für die übrigen und künftig geöffneten Inhalte bestehen; um sie insgesamt zu widerrufen, verwenden Sie die Funktion im Footer.
 
 Der Widerruf beendet die weitere Einbindung. Bereits übermittelte Daten werden dadurch nicht zurückgerufen; die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt unberührt. Bereits von einem externen Dienst gespeicherte Cookies können Sie über Ihre Browsereinstellungen entfernen.
 
