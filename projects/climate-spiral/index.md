@@ -15,7 +15,7 @@ heroEmbedMobileHeight: "70vh"
 heroEmbedMobileMinHeight: "460px"
 previewMedia: /projects/climate-spiral/unwrap_loop.mp4
 gallery:
-  - /projects/climate-spiral/temperature_3d.png
+  - /projects/climate-spiral/temperature_top.png
   - /projects/climate-spiral/sea_ice_volume_2.mp4
   - /projects/climate-spiral/climate_spiral_land.mp4
   - /projects/climate-spiral/co2.png
@@ -24,6 +24,7 @@ gallery:
   - /projects/climate-spiral/climate_spiral_co2.mp4
   - /projects/climate-spiral/unwrapped_top.png
   - /projects/climate-spiral/climate_spiral_temperature.mp4
+  - /projects/climate-spiral/temperature_3d.png
 ---
 
 <ProjectIntro image="/projects/climate-spiral/climate-spiral.mp4" alt="Monthly global temperature anomalies forming a three-dimensional spiral, with more recent years near the top" externalLink="https://betanumeric.github.io/climate_spiral/">

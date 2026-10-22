@@ -20,7 +20,7 @@ gallery:
   - /projects/volumetric_time/example_15.jpg
 ---
 
-<ProjectIntro image="/projects/volumetric_time/exhibition_loop.gif">
+<ProjectIntro image="/projects/volumetric_time/mandelbulb.mp4">
 
 **DESCRIPTION**
 
@@ -72,7 +72,7 @@ I also built a crude rotational rig: a turntable rotating a monitor around its c
 
 Turning image sequences into 3D shapes reminded me of medical imaging techniques such as CT or MRI scans, which represent objects as layered slices. I downloaded datasets of brain scans, satellites, fruits, and animals to “materialize” with my setup. By strapping the monitor to a linear actuator and carefully synchronizing travel speed, frame count, and exposure time, semi-transparent 3D objects emerged in-camera from the two-dimensional scan videos. Depending on where I placed the camera, I got a different angle of the same 3D object.
 
-![early linear-actuator test with an MRI scan](/projects/volumetric_time/early_ct_test.jpg)
+![early linear-actuator test with an MRI scan](/projects/volumetric_time/brain_scan_experiment.mp4)
 
 These experiments established the principle, but the improvised rigs made speed, alignment, and repeated movement difficult to control. This led to the larger, automated monitor lift used in the final installation.
 
