@@ -15,7 +15,7 @@ export default defineConfig({
   // The custom layout manages explicitly chosen session-only preferences.
   appearance: false,
   title: 'Tim Redlich',
-  srcExclude: ['projects/_template/**'],
+  srcExclude: ['projects/_template/**', 'tmp/**'],
   ignoreDeadLinks: false,
   description:
     'Artist & creative technologist focusing on generative visuals, installations, and experimental media.',

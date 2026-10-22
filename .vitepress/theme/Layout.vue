@@ -663,6 +663,7 @@ const handleLeave = (event: MouseEvent) => {
       v-else-if="isProject && frontmatter.heroComponent === 'LumaHeroEmbed' && frontmatter.heroEmbedUrl"
       :src="frontmatter.heroEmbedUrl"
       :title="frontmatter.heroEmbedTitle || frontmatter.title || 'Luma embed'"
+      :description="typeof frontmatter.heroEmbedDescription === 'string' ? frontmatter.heroEmbedDescription : undefined"
       :dark-mode="resolvedHeroEmbedDarkMode"
       :layout-preset="typeof frontmatter.heroEmbedLayoutPreset === 'string' ? frontmatter.heroEmbedLayoutPreset : null"
       :height="typeof frontmatter.heroEmbedHeight === 'string' ? frontmatter.heroEmbedHeight : null"

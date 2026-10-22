@@ -6,7 +6,7 @@ description: Informationen zum Datenschutz, Hosting und zu optionalen externen I
 
 # Datenschutzerklärung
 
-Stand: 19. Oktober 2026
+Stand: 20. Oktober 2026
 
 ## Verantwortlicher
 
@@ -71,6 +71,8 @@ Je nach Projekt können folgende Dienste aktiviert werden:
 | Metareal | Virtuelle Rundgänge | [Metareal-Datenschutz](https://www.metareal.com/?link=privacy) |
 | Eigene Projekte auf GitHub Pages | Interaktive Projektansichten | [GitHub-Datenschutz](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) |
 | Google Sheets, jsDelivr und RawGit | Datentabellen und Bilder der interaktiven Time-Scale-Ansicht | [Google-Datenschutz](https://policies.google.com/privacy), [jsDelivr-Datenschutz](https://www.jsdelivr.com/terms/privacy-policy); Bildabrufe erfolgen auch über `cdn.rawgit.com` |
+
+Die interaktive Ansicht von Climate Spiral lädt zusätzlich Programmbibliotheken von jsDelivr und Schriftarten von Google Fonts. Auch diese Verbindungen entstehen erst nach Ihrer Freigabe der externen Inhalte. Weitere Informationen: [jsDelivr-Datenschutz](https://www.jsdelivr.com/terms/privacy-policy), [Google-Datenschutz](https://policies.google.com/privacy).
 
 Für YouTube wird die Einbettung über `youtube-nocookie.com` verwendet, für Vimeo der Parameter `dnt=1`. Auch diese Varianten werden erst nach Ihrer Einwilligung geladen. YouTube erhält außerdem die Herkunftsadresse der Website (Domain, ohne den Pfad der besuchten Projektseite), die für die Wiedergabe benötigt wird.
 

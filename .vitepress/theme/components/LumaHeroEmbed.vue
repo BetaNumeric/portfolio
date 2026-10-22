@@ -9,6 +9,7 @@ const props = withDefaults(
   defineProps<{
     src: string
     title?: string
+    description?: string
     darkMode?: boolean | string | null
     layoutPreset?: string | null
     height?: string | null
@@ -18,6 +19,7 @@ const props = withDefaults(
   }>(),
   {
     title: 'Luma embed',
+    description: '',
     darkMode: null,
     layoutPreset: null,
     height: null,
@@ -68,6 +70,7 @@ const heroStyle = computed(() => {
     <ExternalEmbed
       :src="embedSrc"
       :title="title"
+      :description="description"
       class="luma-hero__frame"
     />
   </section>

@@ -38,6 +38,8 @@ Similar to how programs like Google Earth can give us a better idea of the space
 
 <ProjectAccordion title="Development">
 
+I had previously explored the idea of a zoomable, linear time axis in [Deep Record](/projects/deep-record/), an interactive visualization of climate history. In Time Scale, I continued that investigation beyond climate data to include durations, cycles, and events in both the past and the future.
+
 I first used Processing (Java) to write the program and later switched to the p5.js JavaScript library to better implement it online.
 
 The program displays a horizontal timeline. The timeline goes left to right from the past into the future. I chose that direction because it is the dominant reading direction in most cultures and it's better suited to most screens on desktop computers than using a bottom-to-top version (which would better correlate with geological strata going further back in time, the lower they are).
