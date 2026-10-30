@@ -4,7 +4,7 @@ title: Volumetric Time
 year: "2026"
 description: "Volumetric Time is an installation and image-making tool that uses movement and long-exposure photography to create a spatial image."
 tags: [Interactive, Machine]
-heroImage: /projects/volumetric_time/example_0.jpg
+heroImage: /projects/volumetric_time/volumetric_mandelbulb_4k.jpg
 previewMedia: /projects/volumetric_time/exhibition_loop.gif
 gallery:
   - /projects/volumetric_time/example_1.jpg
@@ -18,6 +18,7 @@ gallery:
   - /projects/volumetric_time/example_11.jpg
   - /projects/volumetric_time/example_13.jpg
   - /projects/volumetric_time/example_15.jpg
+  - /projects/volumetric_time/volumetric_mandelbulb.jpg
 ---
 
 <ProjectIntro image="/projects/volumetric_time/mandelbulb.mp4">
